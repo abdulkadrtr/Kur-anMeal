@@ -14,7 +14,7 @@ Bu proje, insanların Kur'an-ı Kerim'i kolay bir şekilde okuyabilmeleri için 
 
 [Buraya Tıklayın](https://abdulkadrtr.github.io/Kur-anMeal/)
 
-## 🛠 Teknik Detaylar
+## Teknik Detaylar
 
 ### API Entegrasyonu
 Bu proje [Açık Kuran API](https://github.com/ziegfiroyt/acikkuran-api) kullanmaktadır:
