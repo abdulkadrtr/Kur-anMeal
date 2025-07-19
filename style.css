@@ -152,6 +152,55 @@ main {
     margin-bottom: 20px;
 }
 
+.context-options {
+    margin-bottom: 15px;
+    padding: 15px;
+    background: var(--secondary-bg);
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+}
+
+.context-label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.context-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.context-count-btn {
+    background: var(--accent-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    min-width: 40px;
+}
+
+.context-count-btn:hover {
+    background: var(--hover-color);
+    border-color: var(--text-accent);
+    transform: translateY(-1px);
+}
+
+.context-count-btn.active {
+    background: var(--text-accent);
+    color: var(--primary-bg);
+    border-color: var(--text-accent);
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+}
+
 .context-toggle {
     background: var(--secondary-bg);
     color: var(--text-primary);
@@ -244,6 +293,25 @@ footer {
     .random-verse-btn {
         padding: 12px 25px;
         font-size: 1rem;
+    }
+    
+    .context-options {
+        padding: 12px;
+    }
+    
+    .context-label {
+        font-size: 0.8rem;
+        margin-bottom: 8px;
+    }
+    
+    .context-buttons {
+        gap: 6px;
+    }
+    
+    .context-count-btn {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        min-width: 35px;
     }
 }
 

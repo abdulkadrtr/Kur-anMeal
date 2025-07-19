@@ -1,6 +1,6 @@
-// Açık Kuran API konfigürasyonu
+
 const API_BASE_URL = 'https://api.acikkuran.com';
-const DEFAULT_AUTHOR_ID = 105; // Erhan Aktaş - Kerim Kur'an
+const DEFAULT_AUTHOR_ID = 105;
 
 class QuranApp {
     constructor() {
@@ -8,6 +8,7 @@ class QuranApp {
         this.contextVisible = false;
         this.surahs = [];
         this.isLoading = false;
+        this.contextCount = 3; 
         this.init();
     }
 
@@ -19,9 +20,31 @@ class QuranApp {
     bindEvents() {
         const randomBtn = document.getElementById('randomVerseBtn');
         const contextToggle = document.getElementById('contextToggle');
+        const contextCountBtns = document.querySelectorAll('.context-count-btn');
 
         randomBtn.addEventListener('click', () => this.showRandomVerse());
         contextToggle.addEventListener('click', () => this.toggleContext());
+        
+        // Ayet sayısı butonları için event listener
+        contextCountBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => this.setContextCount(e));
+        });
+    }
+
+    setContextCount(event) {
+        const count = parseInt(event.target.dataset.count);
+        this.contextCount = count;
+        
+        // Aktif butonu güncelle
+        document.querySelectorAll('.context-count-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        // Eğer context açıksa, yeniden yükle
+        if (this.contextVisible) {
+            this.showContextVerses();
+        }
     }
 
     async loadSurahs() {
@@ -176,9 +199,9 @@ class QuranApp {
             // Mevcut ayetin indexini bul
             const currentIndex = allVerses.findIndex(v => v.verse_number === currentVerse.verse_number);
 
-            // Önceki 5 ayet
-            const startIndex = Math.max(0, currentIndex - 5);
-            const endIndex = Math.min(allVerses.length, currentIndex + 6);
+            // Seçilen sayıda önceki ve sonraki ayetleri al
+            const startIndex = Math.max(0, currentIndex - this.contextCount);
+            const endIndex = Math.min(allVerses.length, currentIndex + this.contextCount + 1);
 
             for (let i = startIndex; i < endIndex; i++) {
                 const verse = allVerses[i];
@@ -201,12 +224,12 @@ class QuranApp {
     }
 }
 
-// Uygulamayı başlat
+
 document.addEventListener('DOMContentLoaded', () => {
     new QuranApp();
 });
 
-// Sayfa yüklendiğinde hoş geldin mesajını göster
+
 window.addEventListener('load', () => {
     const container = document.querySelector('.verse-container');
     container.style.opacity = '0';
