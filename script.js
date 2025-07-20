@@ -64,6 +64,37 @@ class QuranApp {
         return parseInt(a_no);
     }
 
+    // Ayet aralığının kaç ayet kapsadığını hesapla
+    getVerseWeight(a_no) {
+        if (typeof a_no === 'string' && a_no.includes('-')) {
+            const parts = a_no.split('-');
+            const start = parseInt(parts[0].trim());
+            const end = parseInt(parts[1].trim());
+            return end - start + 1; // Örnek: "3-4" = 2 ayet, "14-15" = 2 ayet
+        }
+        return 1; // Tek ayet
+    }
+
+    // Ağırlıklı rastgele ayet seçimi
+    selectWeightedRandomVerse(surah) {
+        // Her ayetin ağırlığını hesapla
+        const weightedVerses = [];
+        
+        surah.ayetler.forEach((verse, index) => {
+            const weight = this.getVerseWeight(verse.a_no);
+            // Her ayet için ağırlığı kadar entry ekle
+            for (let i = 0; i < weight; i++) {
+                weightedVerses.push(index);
+            }
+        });
+
+        // Ağırlıklı listeden rastgele seç
+        const randomIndex = Math.floor(Math.random() * weightedVerses.length);
+        const selectedVerseIndex = weightedVerses[randomIndex];
+        
+        return surah.ayetler[selectedVerseIndex];
+    }
+
     async showRandomVerse() {
         if (this.isLoading || this.mealData.length === 0) return;
 
@@ -74,8 +105,8 @@ class QuranApp {
             // Rastgele sure seç
             const randomSurah = this.mealData[Math.floor(Math.random() * this.mealData.length)];
 
-            // Rastgele ayet seç
-            const randomVerse = randomSurah.ayetler[Math.floor(Math.random() * randomSurah.ayetler.length)];
+            // Ağırlıklı rastgele ayet seçimi kullan
+            const randomVerse = this.selectWeightedRandomVerse(randomSurah);
 
             const verseIndex = randomSurah.ayetler.indexOf(randomVerse);
             this.currentVerse = {
