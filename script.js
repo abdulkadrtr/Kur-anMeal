@@ -48,7 +48,30 @@ class QuranApp {
         try {
             const response = await fetch('meal.json');
             this.mealData = await response.json();
-            console.log('Meal verisi yüklendi:', this.mealData.length, 'sure');
+
+            // Ağırlıklı seçim için sure ağırlıklarını hesapla
+            this.surahWeights = [];
+            let totalWeight = 0;
+
+            this.mealData.forEach(surah => {
+                // Her surenin toplam ayet ağırlığını hesapla
+                let surahWeight = 0;
+                surah.ayetler.forEach(verse => {
+                    surahWeight += this.getVerseWeight(verse.a_no);
+                });
+
+                this.surahWeights.push({
+                    surah: surah,
+                    weight: surahWeight,
+                    cumulativeWeight: totalWeight + surahWeight
+                });
+
+                totalWeight += surahWeight;
+            });
+
+            this.totalWeight = totalWeight;
+
+            console.log('Meal verisi yüklendi:', this.mealData.length, 'sure,', 'toplam ağırlık:', totalWeight);
         } catch (error) {
             console.error('Meal verisi yüklenirken hata:', error);
             this.showError('Meal verisi yüklenirken bir hata oluştu.');
@@ -79,7 +102,7 @@ class QuranApp {
     selectWeightedRandomVerse(surah) {
         // Her ayetin ağırlığını hesapla
         const weightedVerses = [];
-        
+
         surah.ayetler.forEach((verse, index) => {
             const weight = this.getVerseWeight(verse.a_no);
             // Her ayet için ağırlığı kadar entry ekle
@@ -91,8 +114,22 @@ class QuranApp {
         // Ağırlıklı listeden rastgele seç
         const randomIndex = Math.floor(Math.random() * weightedVerses.length);
         const selectedVerseIndex = weightedVerses[randomIndex];
-        
+
         return surah.ayetler[selectedVerseIndex];
+    }
+
+    // Ağırlıklı sure seçimi
+    selectWeightedRandomSurah() {
+        const randomWeight = Math.random() * this.totalWeight;
+
+        for (let i = 0; i < this.surahWeights.length; i++) {
+            if (randomWeight <= this.surahWeights[i].cumulativeWeight) {
+                return this.surahWeights[i].surah;
+            }
+        }
+
+        // Fallback - son sureyi döndür
+        return this.surahWeights[this.surahWeights.length - 1].surah;
     }
 
     async showRandomVerse() {
@@ -102,8 +139,8 @@ class QuranApp {
         this.showLoading();
 
         try {
-            // Rastgele sure seç
-            const randomSurah = this.mealData[Math.floor(Math.random() * this.mealData.length)];
+            // Ağırlıklı rastgele sure seçimi - ayet sayısına göre
+            const randomSurah = this.selectWeightedRandomSurah();
 
             // Ağırlıklı rastgele ayet seçimi kullan
             const randomVerse = this.selectWeightedRandomVerse(randomSurah);
