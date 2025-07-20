@@ -15,7 +15,7 @@ Bu proje, insanların Kur'an-ı Kerim'i kolay bir şekilde okuyabilmeleri için 
 
 ## Teknik Detaylar
 
-### API Entegrasyonu
+### Entegrasyon
 Bu proje [Kur'an Meal](https://kuranmeal.com.tr/) kullanmaktadır:
 
 - **Base URL**: `https://kuranmeal.com.tr/`
