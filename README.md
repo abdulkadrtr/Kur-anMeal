@@ -2,13 +2,12 @@
 
 **بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ**
 
-Bu proje, insanların Kur'an-ı Kerim'i kolay bir şekilde okuyabilmeleri için Allah'ın rızası kazanmak için geliştirilmiştir.
+Bu proje, insanların Kur'an-ı Kerim'i kolay bir şekilde okuyabilmeleri için Allah'ın rızasını kazanmak için geliştirilmiştir.
 
 ## Özellikler
 
 - **Rastgele Ayet Okuma**: Butona basarak ayetler arasından rastgele seçim
 - **Bağlamsal Okuma**: Seçilen ayetin öncesi ve sonrasındaki ayetleri görüntüleme
-- **Hızlı ve Güvenilir**: Açık Kuran API entegrasyonu
 
 ## Demo
 
@@ -17,9 +16,9 @@ Bu proje, insanların Kur'an-ı Kerim'i kolay bir şekilde okuyabilmeleri için 
 ## Teknik Detaylar
 
 ### API Entegrasyonu
-Bu proje [Açık Kuran API](https://github.com/ziegfiroyt/acikkuran-api) kullanmaktadır:
+Bu proje [Kur'an Meal](https://kuranmeal.com.tr/) kullanmaktadır:
 
-- **Base URL**: `https://api.acikkuran.com`
+- **Base URL**: `https://kuranmeal.com.tr/`
 
 ---
 

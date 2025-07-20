@@ -1,20 +1,17 @@
 
-const API_BASE_URL = 'https://api.acikkuran.com';
-const DEFAULT_AUTHOR_ID = 105;
-
 class QuranApp {
     constructor() {
         this.currentVerse = null;
         this.contextVisible = false;
-        this.surahs = [];
+        this.mealData = [];
         this.isLoading = false;
-        this.contextCount = 3; 
+        this.contextCount = 3;
         this.init();
     }
 
     async init() {
         this.bindEvents();
-        await this.loadSurahs();
+        await this.loadMealData();
     }
 
     bindEvents() {
@@ -24,7 +21,7 @@ class QuranApp {
 
         randomBtn.addEventListener('click', () => this.showRandomVerse());
         contextToggle.addEventListener('click', () => this.toggleContext());
-        
+
         // Ayet sayısı butonları için event listener
         contextCountBtns.forEach(btn => {
             btn.addEventListener('click', (e) => this.setContextCount(e));
@@ -34,54 +31,62 @@ class QuranApp {
     setContextCount(event) {
         const count = parseInt(event.target.dataset.count);
         this.contextCount = count;
-        
+
         // Aktif butonu güncelle
         document.querySelectorAll('.context-count-btn').forEach(btn => {
             btn.classList.remove('active');
         });
         event.target.classList.add('active');
-        
+
         // Eğer context açıksa, yeniden yükle
         if (this.contextVisible) {
             this.showContextVerses();
         }
     }
 
-    async loadSurahs() {
+    async loadMealData() {
         try {
-            const response = await fetch(`${API_BASE_URL}/surahs`);
-            const data = await response.json();
-            this.surahs = data.data;
+            const response = await fetch('meal.json');
+            this.mealData = await response.json();
+            console.log('Meal verisi yüklendi:', this.mealData.length, 'sure');
         } catch (error) {
-            console.error('Sureler yüklenirken hata:', error);
-            this.showError('Sureler yüklenirken bir hata oluştu.');
+            console.error('Meal verisi yüklenirken hata:', error);
+            this.showError('Meal verisi yüklenirken bir hata oluştu.');
         }
     }
 
+    parseVerseNumber(a_no) {
+        // a_no string ise ve tire içeriyorsa, ilk sayıyı al
+        if (typeof a_no === 'string' && a_no.includes('-')) {
+            return parseInt(a_no.split('-')[0].trim());
+        }
+        // Sayı ise direkt döndür
+        return parseInt(a_no);
+    }
+
     async showRandomVerse() {
-        if (this.isLoading) return;
+        if (this.isLoading || this.mealData.length === 0) return;
 
         this.isLoading = true;
         this.showLoading();
 
         try {
-            // Rastgele sure ve ayet seç
-            const randomSurah = this.surahs[Math.floor(Math.random() * this.surahs.length)];
-            const randomVerseNumber = Math.floor(Math.random() * randomSurah.verse_count) + 1;
+            // Rastgele sure seç
+            const randomSurah = this.mealData[Math.floor(Math.random() * this.mealData.length)];
 
-            // API'den ayeti getir
-            const response = await fetch(`${API_BASE_URL}/surah/${randomSurah.id}/verse/${randomVerseNumber}?author=${DEFAULT_AUTHOR_ID}`);
-            const data = await response.json();
+            // Rastgele ayet seç
+            const randomVerse = randomSurah.ayetler[Math.floor(Math.random() * randomSurah.ayetler.length)];
 
+            const verseIndex = randomSurah.ayetler.indexOf(randomVerse);
             this.currentVerse = {
-                id: data.data.id,
-                surah_id: data.data.surah.id,
-                verse_number: data.data.verse_number,
-                arabic: data.data.verse,
-                turkish: data.data.translation.text,
-                surahName: data.data.surah.name,
-                page: data.data.page,
-                juz: data.data.juz_number
+                id: `${randomSurah.sure_no}-${verseIndex}`, // Benzersiz ID
+                surah_id: randomSurah.sure_no,
+                verse_number: this.parseVerseNumber(randomVerse.a_no),
+                arabic: randomVerse.ar,
+                turkish: randomVerse.tr,
+                surahName: randomSurah.sure_adi,
+                a_no: randomVerse.a_no, // Orijinal a_no değerini sakla
+                verseIndex: verseIndex // Index'i de sakla
             };
 
             this.displayVerse(this.currentVerse);
@@ -98,12 +103,15 @@ class QuranApp {
     displayVerse(verse) {
         const container = document.getElementById('verseContainer');
 
+        // Ayet numarasını gösterirken orijinal a_no değerini kullan
+        const verseNumberDisplay = verse.a_no || verse.verse_number;
+
         container.innerHTML = `
             <div class="verse-content">
                 <div class="verse-arabic">${verse.arabic}</div>
                 <div class="verse-turkish">${verse.turkish}</div>
                 <div class="verse-info">
-                    ${verse.surahName} Suresi, ${verse.verse_number}. Ayet
+                    ${verse.surahName}, ${verseNumberDisplay}. Ayet
                 </div>
             </div>
         `;
@@ -170,11 +178,14 @@ class QuranApp {
                 const verseDiv = document.createElement('div');
                 verseDiv.className = `context-verse ${verse.id === this.currentVerse.id ? 'current' : ''}`;
 
+                // Ayet numarasını gösterirken orijinal a_no değerini kullan
+                const verseNumberDisplay = verse.a_no || verse.verse_number;
+
                 verseDiv.innerHTML = `
                     <div class="verse-arabic">${verse.arabic}</div>
                     <div class="verse-turkish">${verse.turkish}</div>
                     <div class="verse-info">
-                        ${verse.surahName} Suresi, ${verse.verse_number}. Ayet
+                        ${verse.surahName}, ${verseNumberDisplay}. Ayet
                     </div>
                 `;
 
@@ -191,13 +202,16 @@ class QuranApp {
         const contextVerses = [];
 
         try {
-            // Mevcut surenin tüm ayetlerini getir
-            const response = await fetch(`${API_BASE_URL}/surah/${currentVerse.surah_id}?author=${DEFAULT_AUTHOR_ID}`);
-            const data = await response.json();
-            const allVerses = data.data.verses;
+            // Mevcut sureyi meal.json'dan bul
+            const currentSurah = this.mealData.find(surah => surah.sure_no === currentVerse.surah_id);
+            if (!currentSurah) {
+                throw new Error('Sure bulunamadı');
+            }
+
+            const allVerses = currentSurah.ayetler;
 
             // Mevcut ayetin indexini bul
-            const currentIndex = allVerses.findIndex(v => v.verse_number === currentVerse.verse_number);
+            const currentIndex = currentVerse.verseIndex;
 
             // Seçilen sayıda önceki ve sonraki ayetleri al
             const startIndex = Math.max(0, currentIndex - this.contextCount);
@@ -206,12 +220,13 @@ class QuranApp {
             for (let i = startIndex; i < endIndex; i++) {
                 const verse = allVerses[i];
                 contextVerses.push({
-                    id: verse.id,
+                    id: `${currentVerse.surah_id}-${i}`, // Benzersiz ID oluştur
                     surah_id: currentVerse.surah_id,
-                    verse_number: verse.verse_number,
-                    arabic: verse.verse,
-                    turkish: verse.translation.text,
-                    surahName: currentVerse.surahName
+                    verse_number: this.parseVerseNumber(verse.a_no),
+                    arabic: verse.ar,
+                    turkish: verse.tr,
+                    surahName: currentVerse.surahName,
+                    a_no: verse.a_no
                 });
             }
 
