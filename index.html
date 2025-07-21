@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kur'an-ı Kerim Meali</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-</head> 
+    <link
+        href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+</head>
+
 <body>
     <div class="container">
         <header>
@@ -34,10 +38,15 @@
                     <select id="surahSelect" class="surah-select">
                         <option value="">Sure seçiniz...</option>
                     </select>
-                    <button class="read-surah-btn" id="readSurahBtn" disabled>
-                        <span class="btn-text">Sureyi Oku</span>
-                        <span class="btn-icon">📖</span>
-                    </button>
+                    <div class="surah-controls">
+                        <button class="read-surah-btn" id="readSurahBtn" disabled>
+                            <span class="btn-text">Sureyi Oku</span>
+                            <span class="btn-icon">📖</span>
+                        </button>
+                        <select id="verseSelectInline" class="verse-select-inline" style="display: none;">
+                            <option value="">Ayet seçin...</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -81,4 +90,5 @@
 
     <script src="script.js"></script>
 </body>
+
 </html>
