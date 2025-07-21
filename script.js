@@ -136,7 +136,7 @@ class QuranApp {
             const container = document.getElementById('verseContainer');
             container.innerHTML = `
                 <div class="welcome-message">
-                    <p>Rastgele bir ayet okumak için butona basın</p>
+                    <p>Sistemin sizin yerinize ayet seçmesi için butona basın</p>
                 </div>
             `;
         } else {
