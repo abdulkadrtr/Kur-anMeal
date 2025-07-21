@@ -6,7 +6,7 @@
     <title>Kur'an-ı Kerim Meali</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-</head>
+</head> 
 <body>
     <div class="container">
         <header>
@@ -14,17 +14,46 @@
             <p class="subtitle">Kur'an-ı Kerim Meali</p>
         </header>
 
+        <!-- Mode Selection -->
+        <div class="mode-selection">
+            <button class="mode-btn active" id="normalModeBtn">
+                <span class="mode-icon">📖</span>
+                <span class="mode-text">Normal Okuma</span>
+            </button>
+            <button class="mode-btn" id="randomModeBtn">
+                <span class="mode-icon">🔀</span>
+                <span class="mode-text">Karışık Okuma</span>
+            </button>
+        </div>
+
         <main>
-            <div class="verse-container" id="verseContainer">
-                <div class="welcome-message">
-                    <p>Rastgele bir ayet okumak için butona basın</p>
+            <!-- Normal Reading Mode -->
+            <div class="normal-mode-section" id="normalModeSection">
+                <div class="surah-selection">
+                    <label for="surahSelect" class="surah-label">Sure Seçin:</label>
+                    <select id="surahSelect" class="surah-select">
+                        <option value="">Sure seçiniz...</option>
+                    </select>
+                    <button class="read-surah-btn" id="readSurahBtn" disabled>
+                        <span class="btn-text">Sureyi Oku</span>
+                        <span class="btn-icon">📖</span>
+                    </button>
                 </div>
             </div>
 
-            <button class="random-verse-btn" id="randomVerseBtn">
-                <span class="btn-text">Rastgele Ayet</span>
-                <span class="btn-icon">📖</span>
-            </button>
+            <div class="verse-container" id="verseContainer">
+                <div class="welcome-message">
+                    <p>Okumak istediğiniz sureyi seçin</p>
+                </div>
+            </div>
+
+            <!-- Random Mode Button -->
+            <div class="random-mode-section" id="randomModeSection" style="display: none;">
+                <button class="random-verse-btn" id="randomVerseBtn">
+                    <span class="btn-text">Karışık Ayet</span>
+                    <span class="btn-icon">📖</span>
+                </button>
+            </div>
 
             <div class="context-verses" id="contextVerses" style="display: none;">
                 <div class="context-header">

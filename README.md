@@ -6,8 +6,10 @@ Bu proje, insanların Kur'an-ı Kerim'i kolay bir şekilde okuyabilmeleri için 
 
 ## Özellikler
 
-- **Rastgele Ayet Okuma**: Butona basarak ayetler arasından rastgele seçim
+- **Normal Okuma**: Normal okuma modu
+- **Karışık Bağlamsal Ayet Okuma**: Butona basarak ayetler arasından sistem size bir ayet gösterir.
 - **Bağlamsal Okuma**: Seçilen ayetin öncesi ve sonrasındaki ayetleri görüntüleme
+
 
 ## Demo
 
@@ -15,8 +17,8 @@ Bu proje, insanların Kur'an-ı Kerim'i kolay bir şekilde okuyabilmeleri için 
 
 ## Teknik Detaylar
 
-### Entegrasyon
-Bu proje [Kur'an Meal](https://kuranmeal.com.tr/) kullanmaktadır:
+### Meal
+Bu proje türkçe meal olarak [Kur'an Meal](https://kuranmeal.com.tr/) kullanmaktadır:
 
 - **Base URL**: `https://kuranmeal.com.tr/`
 

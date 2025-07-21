@@ -6,6 +6,10 @@ class QuranApp {
         this.mealData = [];
         this.isLoading = false;
         this.contextCount = 3;
+        this.currentMode = 'normal'; // 'random' or 'normal'
+        this.currentSurah = null;
+        this.currentSurahVerses = [];
+        this.currentVerseIndex = 0;
         this.init();
     }
 
@@ -19,8 +23,24 @@ class QuranApp {
         const contextToggle = document.getElementById('contextToggle');
         const contextCountBtns = document.querySelectorAll('.context-count-btn');
 
+        // Mode buttons
+        const randomModeBtn = document.getElementById('randomModeBtn');
+        const normalModeBtn = document.getElementById('normalModeBtn');
+
+        // Normal mode elements
+        const surahSelect = document.getElementById('surahSelect');
+        const readSurahBtn = document.getElementById('readSurahBtn');
+
         randomBtn.addEventListener('click', () => this.showRandomVerse());
         contextToggle.addEventListener('click', () => this.toggleContext());
+
+        // Mode switching
+        randomModeBtn.addEventListener('click', () => this.switchMode('random'));
+        normalModeBtn.addEventListener('click', () => this.switchMode('normal'));
+
+        // Normal mode events
+        surahSelect.addEventListener('change', () => this.onSurahSelect());
+        readSurahBtn.addEventListener('click', () => this.startNormalReading());
 
         // Ayet sayısı butonları için event listener
         contextCountBtns.forEach(btn => {
@@ -71,10 +91,240 @@ class QuranApp {
 
             this.totalWeight = totalWeight;
 
+            // Sure seçim listesini doldur
+            this.populateSurahSelect();
+
             console.log('Meal verisi yüklendi:', this.mealData.length, 'sure,', 'toplam ağırlık:', totalWeight);
         } catch (error) {
             console.error('Meal verisi yüklenirken hata:', error);
             this.showError('Meal verisi yüklenirken bir hata oluştu.');
+        }
+    }
+
+    populateSurahSelect() {
+        const surahSelect = document.getElementById('surahSelect');
+        surahSelect.innerHTML = '<option value="">Sure seçiniz...</option>';
+
+        this.mealData.forEach(surah => {
+            const option = document.createElement('option');
+            option.value = surah.sure_no;
+            option.textContent = `${surah.sure_no}. ${surah.sure_adi}`;
+            surahSelect.appendChild(option);
+        });
+    }
+
+    switchMode(mode) {
+        this.currentMode = mode;
+
+        // Mode butonlarını güncelle
+        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+
+        if (mode === 'random') {
+            document.getElementById('randomModeBtn').classList.add('active');
+            document.getElementById('randomModeSection').style.display = 'block';
+            document.getElementById('normalModeSection').style.display = 'none';
+
+            // Normal mod navigasyon butonlarını gizle
+            const normalNavigation = document.getElementById('normalNavigation');
+            if (normalNavigation) {
+                normalNavigation.style.display = 'none';
+            }
+
+            // Welcome mesajını güncelle
+            const container = document.getElementById('verseContainer');
+            container.innerHTML = `
+                <div class="welcome-message">
+                    <p>Rastgele bir ayet okumak için butona basın</p>
+                </div>
+            `;
+        } else {
+            document.getElementById('normalModeBtn').classList.add('active');
+            document.getElementById('randomModeSection').style.display = 'none';
+            document.getElementById('normalModeSection').style.display = 'block';
+
+            // Normal mod navigasyon butonlarını gizle (henüz sure seçilmediği için)
+            const normalNavigation = document.getElementById('normalNavigation');
+            if (normalNavigation) {
+                normalNavigation.style.display = 'none';
+            }
+
+            // Welcome mesajını güncelle
+            const container = document.getElementById('verseContainer');
+            container.innerHTML = `
+                <div class="welcome-message">
+                    <p>Okumak istediğiniz sureyi seçin</p>
+                </div>
+            `;
+        }
+
+        // Context bölümünü gizle
+        document.getElementById('contextVerses').style.display = 'none';
+        this.contextVisible = false;
+    }
+
+    onSurahSelect() {
+        const surahSelect = document.getElementById('surahSelect');
+        const readSurahBtn = document.getElementById('readSurahBtn');
+
+        if (surahSelect.value) {
+            readSurahBtn.disabled = false;
+        } else {
+            readSurahBtn.disabled = true;
+        }
+    }
+
+    startNormalReading() {
+        const surahSelect = document.getElementById('surahSelect');
+        const selectedSurahId = parseInt(surahSelect.value);
+
+        if (!selectedSurahId) return;
+
+        this.currentSurah = this.mealData.find(surah => surah.sure_no === selectedSurahId);
+        if (!this.currentSurah) return;
+
+        this.currentSurahVerses = this.currentSurah.ayetler;
+        this.currentVerseIndex = 0;
+
+        this.showNormalVerse();
+        this.showNormalNavigation();
+    }
+
+    showNormalVerse() {
+        if (!this.currentSurah || !this.currentSurahVerses.length) return;
+
+        const verse = this.currentSurahVerses[this.currentVerseIndex];
+
+        this.currentVerse = {
+            id: `${this.currentSurah.sure_no}-${this.currentVerseIndex}`,
+            surah_id: this.currentSurah.sure_no,
+            verse_number: this.parseVerseNumber(verse.a_no),
+            arabic: verse.ar,
+            turkish: verse.tr,
+            surahName: this.currentSurah.sure_adi,
+            a_no: verse.a_no,
+            verseIndex: this.currentVerseIndex
+        };
+
+        this.displayNormalVerse(this.currentVerse);
+        this.showContextButton();
+    }
+
+    displayNormalVerse(verse) {
+        const container = document.getElementById('verseContainer');
+        const verseNumberDisplay = verse.a_no || verse.verse_number;
+        
+        // Gerçek toplam ayet sayısını hesapla (son ayetin a_no değerini kullan)
+        const lastVerse = this.currentSurahVerses[this.currentSurahVerses.length - 1];
+        const totalVerses = this.getLastVerseNumber(lastVerse.a_no);
+        const currentVerseNumber = this.getLastVerseNumber(verse.a_no);
+
+        container.innerHTML = `
+            <div class="verse-content">
+                <div class="verse-arabic">${verse.arabic}</div>
+                <div class="verse-turkish">${verse.turkish}</div>
+                <div class="verse-info">
+                    ${verse.surahName}, ${verseNumberDisplay}. Ayet
+                    <div class="verse-progress">${currentVerseNumber} / ${totalVerses}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    showNormalNavigation() {
+        const randomModeSection = document.getElementById('randomModeSection');
+
+        // Navigation butonlarını oluştur
+        if (!document.getElementById('normalNavigation')) {
+            const navDiv = document.createElement('div');
+            navDiv.id = 'normalNavigation';
+            navDiv.className = 'normal-navigation';
+            navDiv.innerHTML = `
+                <button class="nav-btn" id="prevVerseBtn">
+                    <span class="btn-icon">⬅️</span>
+                    <span class="btn-text">Önceki</span>
+                </button>
+                <div class="verse-selector">
+                    <label for="verseSelect" class="verse-selector-label">Ayet:</label>
+                    <select id="verseSelect" class="verse-select">
+                    </select>
+                </div>
+                <button class="nav-btn" id="nextVerseBtn">
+                    <span class="btn-text">Sonraki</span>
+                    <span class="btn-icon">➡️</span>
+                </button>
+            `;
+
+            randomModeSection.parentNode.insertBefore(navDiv, randomModeSection);
+
+            // Event listener'ları ekle
+            document.getElementById('prevVerseBtn').addEventListener('click', () => this.previousVerse());
+            document.getElementById('nextVerseBtn').addEventListener('click', () => this.nextVerse());
+            document.getElementById('verseSelect').addEventListener('change', () => this.onVerseSelect());
+        }
+
+        document.getElementById('normalNavigation').style.display = 'flex';
+        this.populateVerseSelect();
+        this.updateNavigationButtons();
+    }
+
+    populateVerseSelect() {
+        const verseSelect = document.getElementById('verseSelect');
+        if (!verseSelect || !this.currentSurahVerses) return;
+
+        verseSelect.innerHTML = '';
+
+        this.currentSurahVerses.forEach((verse, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = `${verse.a_no}. Ayet`;
+            verseSelect.appendChild(option);
+        });
+
+        // Mevcut ayeti seçili yap
+        verseSelect.value = this.currentVerseIndex;
+    }
+
+    onVerseSelect() {
+        const verseSelect = document.getElementById('verseSelect');
+        if (!verseSelect) return;
+
+        const selectedIndex = parseInt(verseSelect.value);
+        if (selectedIndex >= 0 && selectedIndex < this.currentSurahVerses.length) {
+            this.currentVerseIndex = selectedIndex;
+            this.showNormalVerse();
+            this.updateNavigationButtons();
+        }
+    }
+
+    updateNavigationButtons() {
+        const prevBtn = document.getElementById('prevVerseBtn');
+        const nextBtn = document.getElementById('nextVerseBtn');
+        const verseSelect = document.getElementById('verseSelect');
+
+        if (prevBtn && nextBtn) {
+            prevBtn.disabled = this.currentVerseIndex === 0;
+            nextBtn.disabled = this.currentVerseIndex === this.currentSurahVerses.length - 1;
+        }
+
+        // Ayet seçiciyi de güncelle
+        if (verseSelect) {
+            verseSelect.value = this.currentVerseIndex;
+        }
+    }
+
+    previousVerse() {
+        if (this.currentVerseIndex > 0) {
+            this.currentVerseIndex--;
+            this.showNormalVerse();
+            this.updateNavigationButtons();
+        }
+    }
+
+    nextVerse() {
+        if (this.currentVerseIndex < this.currentSurahVerses.length - 1) {
+            this.currentVerseIndex++;
+            this.showNormalVerse();
+            this.updateNavigationButtons();
         }
     }
 
@@ -96,6 +346,15 @@ class QuranApp {
             return end - start + 1; // Örnek: "3-4" = 2 ayet, "14-15" = 2 ayet
         }
         return 1; // Tek ayet
+    }
+
+    // Ayet numarasının son değerini al (aralık ise son sayıyı, tek ise kendisini)
+    getLastVerseNumber(a_no) {
+        if (typeof a_no === 'string' && a_no.includes('-')) {
+            const parts = a_no.split('-');
+            return parseInt(parts[1].trim()); // Son sayıyı döndür
+        }
+        return parseInt(a_no); // Tek ayet ise kendisini döndür
     }
 
     // Ağırlıklı rastgele ayet seçimi
@@ -206,10 +465,17 @@ class QuranApp {
 
     showContextButton() {
         const contextDiv = document.getElementById('contextVerses');
-        contextDiv.style.display = 'block';
-        this.contextVisible = false;
-        document.getElementById('contextContent').style.display = 'none';
-        document.getElementById('contextToggle').textContent = 'Önceki ve Sonraki Ayetleri Göster';
+
+        // Context bölümü sadece rastgele modda görünmeli
+        if (this.currentMode === 'random') {
+            contextDiv.style.display = 'block';
+            this.contextVisible = false;
+            document.getElementById('contextContent').style.display = 'none';
+            document.getElementById('contextToggle').textContent = 'Önceki ve Sonraki Ayetleri Göster';
+        } else {
+            contextDiv.style.display = 'none';
+            this.contextVisible = false;
+        }
     }
 
     async toggleContext() {
