@@ -207,11 +207,14 @@ class QuranApp {
         if (selectedIndex >= 0 && this.currentSurah && this.currentSurahVerses.length > 0) {
             this.currentVerseIndex = selectedIndex;
             this.showNormalVerse();
+            // Navigasyon butonlarını güncelle
+            this.updateNavigationButtons();
         }
     }
 
     startNormalReading() {
         const surahSelect = document.getElementById('surahSelect');
+        const verseSelectInline = document.getElementById('verseSelectInline');
         const selectedSurahId = parseInt(surahSelect.value);
 
         if (!selectedSurahId) return;
@@ -220,7 +223,10 @@ class QuranApp {
         if (!this.currentSurah) return;
 
         this.currentSurahVerses = this.currentSurah.ayetler;
-        this.currentVerseIndex = 0;
+        
+        // Ayet seçimi varsa onu kullan, yoksa 1. ayetten başla
+        const selectedVerseIndex = verseSelectInline.value !== '' ? parseInt(verseSelectInline.value) : 0;
+        this.currentVerseIndex = selectedVerseIndex;
 
         this.showNormalVerse();
         this.showSimpleNavigation();
