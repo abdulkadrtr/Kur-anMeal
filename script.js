@@ -287,7 +287,7 @@ class QuranApp {
                     <div class="verse-progress">${currentVerseNumber} / ${totalVerses}</div>
                 </div>
                 <button class="bookmark-btn ${isSaved ? 'saved' : ''}" onclick="app.toggleBookmark()">
-                    <span class="bookmark-icon">${isSaved ? '🔖' : '🏷️'}</span>
+                    <span class="bookmark-icon">${isSaved ? '💚' : '🤍'}</span>
                 </button>
             </div>
         `;
@@ -477,7 +477,7 @@ class QuranApp {
                     ${verse.surahName}, ${verseNumberDisplay}. Ayet
                 </div>
                 <button class="bookmark-btn ${isSaved ? 'saved' : ''}" onclick="app.toggleBookmark()">
-                    <span class="bookmark-icon">${isSaved ? '🔖' : '🏷️'}</span>
+                    <span class="bookmark-icon">${isSaved ? '💚' : '🤍'}</span>
                 </button>
             </div>
         `;
@@ -659,7 +659,7 @@ class QuranApp {
         if (bookmarkBtn) {
             const isSaved = this.isVerseSaved(this.currentVerse);
             bookmarkBtn.className = `bookmark-btn ${isSaved ? 'saved' : ''}`;
-            bookmarkBtn.querySelector('.bookmark-icon').textContent = isSaved ? '🔖' : '🏷️';
+            bookmarkBtn.querySelector('.bookmark-icon').textContent = isSaved ? '💚' : '🤍';
         }
     }
 
@@ -679,7 +679,7 @@ class QuranApp {
             container.innerHTML = `
                 <div class="welcome-message">
                     <p>Henüz kaydedilmiş ayet bulunmuyor</p>
-                    <p style="font-size: 0.9rem; margin-top: 10px; opacity: 0.7;">Beğendiğiniz ayetleri kaydetmek için ayet kutucuğundaki 🏷️ simgesine tıklayın</p>
+                    <p style="font-size: 0.9rem; margin-top: 10px; opacity: 0.7;">Beğendiğiniz ayetleri kaydetmek için ayet kutucuğundaki 🤍 simgesine tıklayın</p>
                 </div>
             `;
         } else {
@@ -705,7 +705,7 @@ class QuranApp {
                     <div class="saved-date">Kaydedilme: ${new Date(verse.savedAt).toLocaleDateString('tr-TR')}</div>
                 </div>
                 <button class="bookmark-btn saved" onclick="app.removeSavedVerse('${verse.id}')">
-                    <span class="bookmark-icon">🔖</span>
+                    <span class="bookmark-icon">💚</span>
                 </button>
             </div>
         `;

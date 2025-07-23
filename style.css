@@ -138,20 +138,7 @@ header {
     justify-content: center;
 }
 
-.saved-verses-btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.1), transparent);
-    transition: left 0.5s ease;
-}
 
-.saved-verses-btn:hover::before {
-    left: 100%;
-}
 
 .saved-verses-btn:hover {
     background: rgba(42, 42, 42, 0.9);
@@ -534,14 +521,16 @@ main {
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
+    justify-content: center;
+    font-size: 1.2rem;
     transition: all 0.4s ease;
     backdrop-filter: blur(10px);
     box-shadow:
         0 4px 15px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
     z-index: 10;
+    width: 40px;
+    height: 40px;
 }
 
 .bookmark-btn:hover {
@@ -555,25 +544,26 @@ main {
 }
 
 .bookmark-btn.saved {
-    background: rgba(212, 175, 55, 0.2);
-    border-color: var(--text-accent);
-    color: var(--text-accent);
+    background: rgba(42, 42, 42, 0.9);
+    border-color: rgba(212, 175, 55, 0.3);
+    color: var(--text-secondary);
     box-shadow:
-        0 4px 15px rgba(212, 175, 55, 0.3),
-        inset 0 1px 0 rgba(212, 175, 55, 0.1);
+        0 4px 15px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .bookmark-btn.saved:hover {
-    background: rgba(212, 175, 55, 0.3);
+    background: rgba(58, 58, 58, 0.95);
+    border-color: var(--text-accent);
     transform: translateY(-2px) scale(1.05);
     box-shadow:
-        0 6px 20px rgba(212, 175, 55, 0.4),
-        inset 0 1px 0 rgba(212, 175, 55, 0.2);
+        0 6px 20px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    color: var(--text-accent);
 }
 
 .bookmark-icon {
     font-size: 1.1rem;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
 .verse-arabic {
@@ -1362,6 +1352,7 @@ footer::before {
         transform: rotate(360deg);
     }
 }
+
 /* Saved Verses Modal */
 .saved-verses-modal {
     display: none;
@@ -1383,6 +1374,7 @@ footer::before {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -1410,6 +1402,7 @@ footer::before {
         opacity: 0;
         transform: translateY(30px) scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
