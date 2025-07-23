@@ -10,12 +10,14 @@ class QuranApp {
         this.currentSurah = null;
         this.currentSurahVerses = [];
         this.currentVerseIndex = 0;
+        this.savedVerses = this.loadSavedVerses();
         this.init();
     }
 
     async init() {
         this.bindEvents();
         await this.loadMealData();
+        this.updateSavedVersesCounter();
     }
 
     bindEvents() {
@@ -32,6 +34,9 @@ class QuranApp {
         const readSurahBtn = document.getElementById('readSurahBtn');
         const verseSelectInline = document.getElementById('verseSelectInline');
 
+        // Saved verses elements
+        const savedVersesBtn = document.getElementById('savedVersesBtn');
+
         randomBtn.addEventListener('click', () => this.showRandomVerse());
         contextToggle.addEventListener('click', () => this.toggleContext());
 
@@ -43,6 +48,9 @@ class QuranApp {
         surahSelect.addEventListener('change', () => this.onSurahSelect());
         readSurahBtn.addEventListener('click', () => this.startNormalReading());
         verseSelectInline.addEventListener('change', () => this.onInlineVerseSelect());
+
+        // Saved verses events - header button still works for quick access
+        savedVersesBtn.addEventListener('click', () => this.switchMode('saved'));
 
         // Ayet sayısı butonları için event listener
         contextCountBtns.forEach(btn => {
@@ -115,22 +123,34 @@ class QuranApp {
         });
     }
 
+    hideAllNavigations() {
+        const simpleNavigation = document.getElementById('simpleNavigation');
+        const savedNavigation = document.getElementById('savedNavigation');
+        
+        if (simpleNavigation) {
+            simpleNavigation.style.display = 'none';
+        }
+        if (savedNavigation) {
+            savedNavigation.style.display = 'none';
+        }
+    }
+
     switchMode(mode) {
         this.currentMode = mode;
 
         // Mode butonlarını güncelle
         document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
 
+        // Tüm bölümleri gizle
+        document.getElementById('randomModeSection').style.display = 'none';
+        document.getElementById('normalModeSection').style.display = 'none';
+        
+        // Tüm navigasyonları gizle
+        this.hideAllNavigations();
+
         if (mode === 'random') {
             document.getElementById('randomModeBtn').classList.add('active');
             document.getElementById('randomModeSection').style.display = 'block';
-            document.getElementById('normalModeSection').style.display = 'none';
-
-            // Normal mod navigasyon butonlarını gizle
-            const simpleNavigation = document.getElementById('simpleNavigation');
-            if (simpleNavigation) {
-                simpleNavigation.style.display = 'none';
-            }
 
             // Welcome mesajını güncelle
             const container = document.getElementById('verseContainer');
@@ -139,16 +159,12 @@ class QuranApp {
                     <p>Sistemin sizin yerinize ayet seçmesi için butona basın</p>
                 </div>
             `;
+        } else if (mode === 'saved') {
+            // Saved mode için özel işlem - mode butonlarını güncelleme
+            this.showSavedVersesPage();
         } else {
             document.getElementById('normalModeBtn').classList.add('active');
-            document.getElementById('randomModeSection').style.display = 'none';
             document.getElementById('normalModeSection').style.display = 'block';
-
-            // Normal mod navigasyon butonlarını gizle (henüz sure seçilmediği için)
-            const simpleNavigation = document.getElementById('simpleNavigation');
-            if (simpleNavigation) {
-                simpleNavigation.style.display = 'none';
-            }
 
             // Welcome mesajını güncelle
             const container = document.getElementById('verseContainer');
@@ -255,6 +271,7 @@ class QuranApp {
     displayNormalVerse(verse) {
         const container = document.getElementById('verseContainer');
         const verseNumberDisplay = verse.a_no || verse.verse_number;
+        const isSaved = this.isVerseSaved(verse);
         
         // Gerçek toplam ayet sayısını hesapla (son ayetin a_no değerini kullan)
         const lastVerse = this.currentSurahVerses[this.currentSurahVerses.length - 1];
@@ -269,11 +286,17 @@ class QuranApp {
                     ${verse.surahName}, ${verseNumberDisplay}. Ayet
                     <div class="verse-progress">${currentVerseNumber} / ${totalVerses}</div>
                 </div>
+                <button class="bookmark-btn ${isSaved ? 'saved' : ''}" onclick="app.toggleBookmark()">
+                    <span class="bookmark-icon">${isSaved ? '🔖' : '🏷️'}</span>
+                </button>
             </div>
         `;
     }
 
     showSimpleNavigation() {
+        // Önce mevcut navigasyonları gizle
+        this.hideAllNavigations();
+        
         const randomModeSection = document.getElementById('randomModeSection');
 
         // Basit navigasyon butonlarını oluştur
@@ -444,6 +467,7 @@ class QuranApp {
 
         // Ayet numarasını gösterirken orijinal a_no değerini kullan
         const verseNumberDisplay = verse.a_no || verse.verse_number;
+        const isSaved = this.isVerseSaved(verse);
 
         container.innerHTML = `
             <div class="verse-content">
@@ -452,6 +476,9 @@ class QuranApp {
                 <div class="verse-info">
                     ${verse.surahName}, ${verseNumberDisplay}. Ayet
                 </div>
+                <button class="bookmark-btn ${isSaved ? 'saved' : ''}" onclick="app.toggleBookmark()">
+                    <span class="bookmark-icon">${isSaved ? '🔖' : '🏷️'}</span>
+                </button>
             </div>
         `;
     }
@@ -583,11 +610,201 @@ class QuranApp {
             throw error;
         }
     }
+
+    // Bookmark fonksiyonları
+    loadSavedVerses() {
+        try {
+            const saved = localStorage.getItem('savedVerses');
+            return saved ? JSON.parse(saved) : [];
+        } catch (error) {
+            console.error('Kaydedilen ayetler yüklenirken hata:', error);
+            return [];
+        }
+    }
+
+    saveSavedVerses() {
+        try {
+            localStorage.setItem('savedVerses', JSON.stringify(this.savedVerses));
+            this.updateSavedVersesCounter();
+        } catch (error) {
+            console.error('Ayetler kaydedilirken hata:', error);
+        }
+    }
+
+    isVerseSaved(verse) {
+        return this.savedVerses.some(saved => saved.id === verse.id);
+    }
+
+    toggleBookmark() {
+        if (!this.currentVerse) return;
+
+        const verseId = this.currentVerse.id;
+        const existingIndex = this.savedVerses.findIndex(saved => saved.id === verseId);
+
+        if (existingIndex >= 0) {
+            // Ayeti kaldır
+            this.savedVerses.splice(existingIndex, 1);
+        } else {
+            // Ayeti ekle
+            this.savedVerses.push({
+                ...this.currentVerse,
+                savedAt: new Date().toISOString()
+            });
+        }
+
+        this.saveSavedVerses();
+        
+        // Bookmark butonunu güncelle
+        const bookmarkBtn = document.querySelector('.bookmark-btn');
+        if (bookmarkBtn) {
+            const isSaved = this.isVerseSaved(this.currentVerse);
+            bookmarkBtn.className = `bookmark-btn ${isSaved ? 'saved' : ''}`;
+            bookmarkBtn.querySelector('.bookmark-icon').textContent = isSaved ? '🔖' : '🏷️';
+        }
+    }
+
+    updateSavedVersesCounter() {
+        const counter = document.getElementById('savedVersesCounter');
+        if (counter) {
+            const count = this.savedVerses.length;
+            counter.textContent = count > 0 ? count : '';
+            counter.style.display = count > 0 ? 'flex' : 'none';
+        }
+    }
+
+    showSavedVersesPage() {
+        const container = document.getElementById('verseContainer');
+        
+        if (this.savedVerses.length === 0) {
+            container.innerHTML = `
+                <div class="welcome-message">
+                    <p>Henüz kaydedilmiş ayet bulunmuyor</p>
+                    <p style="font-size: 0.9rem; margin-top: 10px; opacity: 0.7;">Beğendiğiniz ayetleri kaydetmek için ayet kutucuğundaki 🏷️ simgesine tıklayın</p>
+                </div>
+            `;
+        } else {
+            this.currentSavedIndex = 0;
+            this.showSavedVerse();
+            this.showSavedNavigation();
+        }
+    }
+
+    showSavedVerse() {
+        if (this.savedVerses.length === 0) return;
+        
+        const verse = this.savedVerses[this.currentSavedIndex];
+        const container = document.getElementById('verseContainer');
+        
+        container.innerHTML = `
+            <div class="verse-content">
+                <div class="verse-arabic">${verse.arabic}</div>
+                <div class="verse-turkish">${verse.turkish}</div>
+                <div class="verse-info">
+                    ${verse.surahName}, ${verse.a_no}. Ayet
+                    <div class="verse-progress">${this.currentSavedIndex + 1} / ${this.savedVerses.length}</div>
+                    <div class="saved-date">Kaydedilme: ${new Date(verse.savedAt).toLocaleDateString('tr-TR')}</div>
+                </div>
+                <button class="bookmark-btn saved" onclick="app.removeSavedVerse('${verse.id}')">
+                    <span class="bookmark-icon">🔖</span>
+                </button>
+            </div>
+        `;
+    }
+
+    showSavedNavigation() {
+        // Önce mevcut navigasyonları gizle
+        this.hideAllNavigations();
+        
+        const randomModeSection = document.getElementById('randomModeSection');
+
+        if (!document.getElementById('savedNavigation')) {
+            const navDiv = document.createElement('div');
+            navDiv.id = 'savedNavigation';
+            navDiv.className = 'simple-navigation';
+            navDiv.innerHTML = `
+                <button class="nav-btn" id="prevSavedBtn">
+                    <span class="btn-icon">⬅️</span>
+                    <span class="btn-text">Önceki</span>
+                </button>
+                <button class="nav-btn" id="nextSavedBtn">
+                    <span class="btn-text">Sonraki</span>
+                    <span class="btn-icon">➡️</span>
+                </button>
+            `;
+
+            randomModeSection.parentNode.insertBefore(navDiv, randomModeSection);
+
+            document.getElementById('prevSavedBtn').addEventListener('click', () => this.previousSavedVerse());
+            document.getElementById('nextSavedBtn').addEventListener('click', () => this.nextSavedVerse());
+        }
+
+        document.getElementById('savedNavigation').style.display = 'flex';
+        this.updateSavedNavigationButtons();
+    }
+
+    updateSavedNavigationButtons() {
+        const prevBtn = document.getElementById('prevSavedBtn');
+        const nextBtn = document.getElementById('nextSavedBtn');
+
+        if (prevBtn && nextBtn) {
+            prevBtn.disabled = this.currentSavedIndex === 0;
+            nextBtn.disabled = this.currentSavedIndex === this.savedVerses.length - 1;
+        }
+    }
+
+    previousSavedVerse() {
+        if (this.currentSavedIndex > 0) {
+            this.currentSavedIndex--;
+            this.showSavedVerse();
+            this.updateSavedNavigationButtons();
+        }
+    }
+
+    nextSavedVerse() {
+        if (this.currentSavedIndex < this.savedVerses.length - 1) {
+            this.currentSavedIndex++;
+            this.showSavedVerse();
+            this.updateSavedNavigationButtons();
+        }
+    }
+
+    removeSavedVerse(verseId) {
+        const index = this.savedVerses.findIndex(saved => saved.id === verseId);
+        if (index >= 0) {
+            this.savedVerses.splice(index, 1);
+            this.saveSavedVerses();
+            
+            // Eğer kaydedilenler modundaysak sayfayı yenile
+            if (this.currentMode === 'saved') {
+                if (this.savedVerses.length === 0) {
+                    this.showSavedVersesPage();
+                    const savedNav = document.getElementById('savedNavigation');
+                    if (savedNav) savedNav.style.display = 'none';
+                } else {
+                    // Index'i ayarla
+                    if (this.currentSavedIndex >= this.savedVerses.length) {
+                        this.currentSavedIndex = this.savedVerses.length - 1;
+                    }
+                    this.showSavedVerse();
+                    this.updateSavedNavigationButtons();
+                }
+            }
+            
+            // Eğer şu anda görüntülenen ayet kaldırıldıysa bookmark butonunu güncelle
+            if (this.currentVerse && this.currentVerse.id === verseId) {
+                const bookmarkBtn = document.querySelector('.bookmark-btn');
+                if (bookmarkBtn) {
+                    bookmarkBtn.className = 'bookmark-btn';
+                    bookmarkBtn.querySelector('.bookmark-icon').textContent = '🏷️';
+                }
+            }
+        }
+    }
 }
 
 
 document.addEventListener('DOMContentLoaded', () => {
-    new QuranApp();
+    window.app = new QuranApp();
 });
 
 
