@@ -126,7 +126,7 @@ class QuranApp {
     hideAllNavigations() {
         const simpleNavigation = document.getElementById('simpleNavigation');
         const savedNavigation = document.getElementById('savedNavigation');
-        
+
         if (simpleNavigation) {
             simpleNavigation.style.display = 'none';
         }
@@ -144,7 +144,7 @@ class QuranApp {
         // Tüm bölümleri gizle
         document.getElementById('randomModeSection').style.display = 'none';
         document.getElementById('normalModeSection').style.display = 'none';
-        
+
         // Tüm navigasyonları gizle
         this.hideAllNavigations();
 
@@ -239,7 +239,7 @@ class QuranApp {
         if (!this.currentSurah) return;
 
         this.currentSurahVerses = this.currentSurah.ayetler;
-        
+
         // Ayet seçimi varsa onu kullan, yoksa 1. ayetten başla
         const selectedVerseIndex = verseSelectInline.value !== '' ? parseInt(verseSelectInline.value) : 0;
         this.currentVerseIndex = selectedVerseIndex;
@@ -272,7 +272,7 @@ class QuranApp {
         const container = document.getElementById('verseContainer');
         const verseNumberDisplay = verse.a_no || verse.verse_number;
         const isSaved = this.isVerseSaved(verse);
-        
+
         // Gerçek toplam ayet sayısını hesapla (son ayetin a_no değerini kullan)
         const lastVerse = this.currentSurahVerses[this.currentSurahVerses.length - 1];
         const totalVerses = this.getLastVerseNumber(lastVerse.a_no);
@@ -281,7 +281,7 @@ class QuranApp {
         container.innerHTML = `
             <div class="verse-content">
                 <div class="verse-arabic">${verse.arabic}</div>
-                <div class="verse-turkish">${verse.turkish}</div>
+                <div class="verse-turkish">${this.highlightParentheses(verse.turkish)}</div>
                 <div class="verse-info">
                     ${verse.surahName}, ${verseNumberDisplay}. Ayet
                     <div class="verse-progress">${currentVerseNumber} / ${totalVerses}</div>
@@ -296,7 +296,7 @@ class QuranApp {
     showSimpleNavigation() {
         // Önce mevcut navigasyonları gizle
         this.hideAllNavigations();
-        
+
         const randomModeSection = document.getElementById('randomModeSection');
 
         // Basit navigasyon butonlarını oluştur
@@ -472,7 +472,7 @@ class QuranApp {
         container.innerHTML = `
             <div class="verse-content">
                 <div class="verse-arabic">${verse.arabic}</div>
-                <div class="verse-turkish">${verse.turkish}</div>
+                <div class="verse-turkish">${this.highlightParentheses(verse.turkish)}</div>
                 <div class="verse-info">
                     ${verse.surahName}, ${verseNumberDisplay}. Ayet
                 </div>
@@ -556,7 +556,7 @@ class QuranApp {
 
                 verseDiv.innerHTML = `
                     <div class="verse-arabic">${verse.arabic}</div>
-                    <div class="verse-turkish">${verse.turkish}</div>
+                    <div class="verse-turkish">${this.highlightParentheses(verse.turkish)}</div>
                     <div class="verse-info">
                         ${verse.surahName}, ${verseNumberDisplay}. Ayet
                     </div>
@@ -611,6 +611,12 @@ class QuranApp {
         }
     }
 
+    // Parantezleri yeşil renkle vurgula
+    highlightParentheses(text) {
+        if (!text) return text;
+        return text.replace(/\(/g, '<span class="parenthesis">(').replace(/\)/g, ')</span>');
+    }
+
     // Bookmark fonksiyonları
     loadSavedVerses() {
         try {
@@ -653,7 +659,7 @@ class QuranApp {
         }
 
         this.saveSavedVerses();
-        
+
         // Bookmark butonunu güncelle
         const bookmarkBtn = document.querySelector('.bookmark-btn');
         if (bookmarkBtn) {
@@ -674,7 +680,7 @@ class QuranApp {
 
     showSavedVersesPage() {
         const container = document.getElementById('verseContainer');
-        
+
         if (this.savedVerses.length === 0) {
             container.innerHTML = `
                 <div class="welcome-message">
@@ -691,14 +697,14 @@ class QuranApp {
 
     showSavedVerse() {
         if (this.savedVerses.length === 0) return;
-        
+
         const verse = this.savedVerses[this.currentSavedIndex];
         const container = document.getElementById('verseContainer');
-        
+
         container.innerHTML = `
             <div class="verse-content">
                 <div class="verse-arabic">${verse.arabic}</div>
-                <div class="verse-turkish">${verse.turkish}</div>
+                <div class="verse-turkish">${this.highlightParentheses(verse.turkish)}</div>
                 <div class="verse-info">
                     ${verse.surahName}, ${verse.a_no}. Ayet
                     <div class="verse-progress">${this.currentSavedIndex + 1} / ${this.savedVerses.length}</div>
@@ -714,7 +720,7 @@ class QuranApp {
     showSavedNavigation() {
         // Önce mevcut navigasyonları gizle
         this.hideAllNavigations();
-        
+
         const randomModeSection = document.getElementById('randomModeSection');
 
         if (!document.getElementById('savedNavigation')) {
@@ -773,7 +779,7 @@ class QuranApp {
         if (index >= 0) {
             this.savedVerses.splice(index, 1);
             this.saveSavedVerses();
-            
+
             // Eğer kaydedilenler modundaysak sayfayı yenile
             if (this.currentMode === 'saved') {
                 if (this.savedVerses.length === 0) {
@@ -789,7 +795,7 @@ class QuranApp {
                     this.updateSavedNavigationButtons();
                 }
             }
-            
+
             // Eğer şu anda görüntülenen ayet kaldırıldıysa bookmark butonunu güncelle
             if (this.currentVerse && this.currentVerse.id === verseId) {
                 const bookmarkBtn = document.querySelector('.bookmark-btn');

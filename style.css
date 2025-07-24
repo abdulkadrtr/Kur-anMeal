@@ -608,6 +608,11 @@ main {
     position: relative;
 }
 
+.verse-turkish .parenthesis {
+    color: #4ade80;
+    font-weight: 500;
+}
+
 @keyframes fadeInUp {
     from {
         opacity: 0;
