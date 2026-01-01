@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="tr" class="h-full dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Kur-an Meal</title>
+    <meta name="description" content="Huzurlu bir Kur'an-ı Kerim okuma deneyimi." />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231A1D23'/><circle cx='50' cy='50' r='35' fill='%23D4AF37'/><text x='50' y='68' font-family='Arial' font-size='45' fill='%231A1D23' text-anchor='middle' font-weight='bold'>ا</text></svg>" />
+    <meta name="theme-color" content="#D4AF37" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Kur'an Meal" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%231A1D23'/><circle cx='96' cy='96' r='70' fill='%23D4AF37'/><text x='96' y='130' font-family='Arial' font-size='80' fill='%231A1D23' text-anchor='middle' font-weight='bold'>ا</text></svg>" />
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tailwind Config for Custom Palette -->
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Poppins', 'Inter', 'sans-serif'],
+              arabic: ['Amiri', 'serif'],
+            },
+            colors: {
+              light: {
+                bg: '#FDFBF7',
+                card: '#FFFFFF',
+                text: '#2C3E50',
+                arabic: '#1E5F3E',
+                secondary: '#5A6C7D',
+                accent: '#D4AF37',
+                border: '#E9ECEF',
+              },
+              dark: {
+                bg: '#1A1D23',
+                card: '#25282F',
+                text: '#E4E6EB',
+                arabic: '#81C784',
+                secondary: '#B0B3B8',
+                accent: '#FFD54F',
+                border: '#3A3D45',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Custom Scrollbar for Webkit */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #D4AF3740;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #D4AF3780;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #FFD54F40;
+      }
+      .dark ::-webkit-scrollbar-thumb:hover {
+        background: #FFD54F80;
+      }
+    </style>
+
+<link rel="stylesheet" href="/index.css">
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+  }
+}
+</script>
+  <script type="module" crossorigin src="./assets/index-wxfVnYjx.js"></script>
+</head>
+  <body class="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text transition-colors duration-300 h-full overflow-hidden">
+    <div id="root" class="h-full"></div>
+  
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('Service Worker kayıt başarılı:', registration.scope);
+          })
+          .catch((error) => {
+            console.log('Service Worker kayıt hatası:', error);
+          });
+      });
+    }
+  </script>
+</body>
+</html>
