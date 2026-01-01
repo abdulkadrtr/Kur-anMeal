@@ -68,9 +68,11 @@ const SurahView: React.FC<SurahViewProps> = ({
       // Kartın screenshot'ını al
       const canvas = await html2canvas(cardRef.current, {
         backgroundColor: null,
-        scale: 2, // Yüksek kalite için
+        scale: 3, // Daha yüksek kalite için
         logging: false,
-        useCORS: true
+        useCORS: true,
+        allowTaint: true,
+        removeContainer: true
       });
       
       // Canvas'ı blob'a çevir
@@ -161,21 +163,11 @@ const SurahView: React.FC<SurahViewProps> = ({
               className="w-full max-w-2xl bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border border-light-border dark:border-dark-border p-5 md:p-10 relative flex flex-col items-center text-center transition-all duration-300 my-2"
             >
                 
-                {/* Ayah Number Badge */}
-                <div className="absolute top-4 left-4 w-8 h-8 md:w-10 md:h-10 rounded-full bg-light-bg dark:bg-dark-bg border border-light-accent dark:border-dark-accent flex items-center justify-center text-xs md:text-sm font-bold text-light-accent dark:text-dark-accent shadow-sm">
-                    <span className="leading-none">{currentAyah.numberInSurah}</span>
-                </div>
-
-                {/* Sure Adı - Sadece screenshot için */}
-                <div className="w-full mb-4 text-center">
-                    <h2 className="text-lg md:text-xl font-bold text-light-text dark:text-dark-text">
-                        {surah.nameTurkish}
+                {/* Sure Adı ve Ayet Numarası */}
+                <div className="w-full mb-4 text-center pt-2">
+                    <h2 className="text-sm md:text-base font-medium text-light-secondary dark:text-dark-secondary opacity-70">
+                        {surah.nameTurkish} - {currentAyah.numberInSurah}. Ayet
                     </h2>
-                    {surah.id !== 9 && (
-                        <p className="mt-2 font-arabic text-lg md:text-xl text-light-secondary dark:text-dark-secondary opacity-75">
-                            {BISMILLAH}
-                        </p>
-                    )}
                 </div>
 
                 {/* Arabic Text - Sized down for mobile */}
