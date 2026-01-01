@@ -44,7 +44,7 @@ const App: React.FC = () => {
       try {
         setLoading(true);
         // Attempt to fetch meal.json from the public root
-        const response = await fetch('meal.json');
+        const response = await fetch('/meal.json');
         if (!response.ok) {
           throw new Error('Meal verisi yüklenemedi.');
         }
