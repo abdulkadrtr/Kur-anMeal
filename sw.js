@@ -1,21 +1,11 @@
 // Service Worker for PWA
 const CACHE_NAME = 'kuran-meal-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/index.tsx',
-  '/App.tsx',
-  '/constants.ts',
-  '/types.ts',
-  '/meal.json',
-  '/metadata.json',
-  '/components/Header.tsx',
-  '/components/Sidebar.tsx',
-  '/components/HomeView.tsx',
-  '/components/SurahView.tsx',
-  '/components/FavoritesView.tsx',
-  '/components/BookmarksView.tsx',
-  '/components/AudioPlayer.tsx'
+  './',
+  './index.html',
+  './meal.json',
+  './metadata.json',
+  './manifest.json'
 ];
 
 // Install event - cache files
@@ -80,7 +70,7 @@ self.addEventListener('fetch', (event) => {
           return response;
         }).catch(() => {
           // Offline fallback
-          return caches.match('/index.html');
+          return caches.match('./index.html');
         });
       })
   );
