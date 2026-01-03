@@ -1,7 +1,7 @@
 import React from 'react';
 import { Surah } from '../types';
 import { BISMILLAH } from '../constants';
-import { Copy, ChevronLeft, ChevronRight, Heart, Check, Bookmark, Share2, Play, Pause } from 'lucide-react';
+import { Copy, ChevronLeft, ChevronRight, Heart, Check, Bookmark, Share2, Play, Pause, PlayCircle, StopCircle } from 'lucide-react';
 
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
 type ReciterType = 'husary' | 'alqatami';
@@ -33,6 +33,7 @@ const SurahView: React.FC<SurahViewProps> = ({
   const [sharing, setSharing] = React.useState(false);
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentPlayingIndex, setCurrentPlayingIndex] = React.useState<number | null>(null);
+  const [isAutoPlaying, setIsAutoPlaying] = React.useState(false);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
   const cardRefs = React.useRef<(HTMLDivElement | null)[]>([]);
@@ -172,6 +173,14 @@ const SurahView: React.FC<SurahViewProps> = ({
     audio.onended = () => {
       setIsPlaying(false);
       setCurrentPlayingIndex(null);
+      
+      // Otomatik oynatma aktifse bir sonraki ayete geç
+      if (isAutoPlaying && index < surah.ayahs.length - 1) {
+        playNextAyah(index + 1);
+      } else if (isAutoPlaying && index === surah.ayahs.length - 1) {
+        // Son ayete ulaşıldı, otomatik oynatmayı durdur
+        setIsAutoPlaying(false);
+      }
     };
 
     // Hata durumunda
@@ -179,7 +188,51 @@ const SurahView: React.FC<SurahViewProps> = ({
       console.error('Ses yükleme hatası');
       setIsPlaying(false);
       setCurrentPlayingIndex(null);
+      
+      // Otomatik oynatma aktifse durdur
+      if (isAutoPlaying) {
+        setIsAutoPlaying(false);
+      }
     };
+  };
+
+  // Sonraki ayeti çal ve ekranda göster
+  const playNextAyah = (nextIndex: number) => {
+    // Ayeti değiştir
+    onAyahChange(nextIndex);
+    
+    // Ekranda göster
+    isAutoScrolling.current = true;
+    
+    setTimeout(() => {
+      const targetCard = cardRefs.current[nextIndex];
+      if (targetCard && navigationMode === 'scroll') {
+        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      
+      // Sesi çal
+      setTimeout(() => {
+        handlePlayAudio(nextIndex);
+        isAutoScrolling.current = false;
+      }, 500);
+    }, 300);
+  };
+
+  // Otomatik oynatmayı başlat/durdur
+  const toggleAutoPlay = () => {
+    if (isAutoPlaying) {
+      // Durdur
+      setIsAutoPlaying(false);
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      setIsPlaying(false);
+      setCurrentPlayingIndex(null);
+    } else {
+      // Başlat
+      setIsAutoPlaying(true);
+      handlePlayAudio(safeIndex);
+    }
   };
 
   // Component unmount olduğunda sesi durdur
@@ -189,6 +242,7 @@ const SurahView: React.FC<SurahViewProps> = ({
         audioRef.current.pause();
         audioRef.current = null;
       }
+      setIsAutoPlaying(false);
     };
   }, []);
 
@@ -439,7 +493,11 @@ const SurahView: React.FC<SurahViewProps> = ({
               <div 
                 key={ayah.id}
                 ref={(el) => (cardRefs.current[index] = el)}
-                className="w-full bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border border-light-border dark:border-dark-border p-5 md:p-10 relative flex flex-col items-center text-center transition-all duration-300"
+                className={`w-full bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border-2 transition-all duration-300 p-5 md:p-10 relative flex flex-col items-center text-center ${
+                  isAutoPlaying && currentPlayingIndex === index
+                    ? 'border-green-500 shadow-lg shadow-green-500/20'
+                    : 'border-light-border dark:border-dark-border'
+                }`}
               >
                 {/* Sure Adı ve Ayet Numarası */}
                 <div className="w-full mb-4 text-center pt-2">
@@ -676,6 +734,22 @@ const SurahView: React.FC<SurahViewProps> = ({
                   <span className="hidden md:inline font-medium">Önceki</span>
               </button>
             )}
+
+            {/* Auto Play Button */}
+            <button 
+                onClick={toggleAutoPlay}
+                className={`flex items-center gap-2 px-3 py-2.5 md:px-4 md:py-3 rounded-xl border transition-all ${
+                  isAutoPlaying
+                    ? 'bg-red-500 text-white border-red-500 hover:bg-red-600'
+                    : 'bg-green-500 text-white border-green-500 hover:bg-green-600'
+                }`}
+                title={isAutoPlaying ? 'Otomatik Okumayı Durdur' : 'Sırayla Oku'}
+            >
+                {isAutoPlaying ? <StopCircle size={20} /> : <PlayCircle size={20} />}
+                <span className="hidden md:inline font-medium">
+                  {isAutoPlaying ? 'Durdur' : 'Sırayla Oku'}
+                </span>
+            </button>
 
             {/* Ayah Selector - Tüm modlarda */}
             <div className="flex-1 max-w-xs mx-auto">
