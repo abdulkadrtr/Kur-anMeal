@@ -7,11 +7,12 @@ Bu proje, insanların Kur'an-ı Kerim'i kolay bir şekilde okuyabilmeleri için 
 ## Özellikler
 
 - **Normal Okuma**: Normal okuma modu.
+- **Ses Modu**: İstenen ayet için farklı okuyuculardan arapça sesli dinleme.
 - **Karışık Bağlamsal Ayet Okuma**: Butona basarak ayetler arasından sistem size bir ayet gösterir.
 - **Ayet Beğeni**: Kaydetmek için ayet beğenme.
 - **Kaldığım Yerden Devam Et**: Okuma yaparken kalınan yeri kaydetme.
 - **Gece Modu**: Aydınlık ve karanlık okuma modları.
-- **Çevrimdışı Okuma**: Mobil tarayıcı üzerinden `Daha Fazla-> Ana Sayfana Ekle -> Yükle` adımlarıyla uygulama olarak yükleyip, internet bağlantısı olmadan okuma.
+- **Uygulama Modu**: Mobil tarayıcı üzerinden `Daha Fazla-> Ana Sayfana Ekle -> Yükle` adımlarıyla uygulama olarak yükleme.
 
 ## Demo
 
