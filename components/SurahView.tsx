@@ -33,7 +33,6 @@ const SurahView: React.FC<SurahViewProps> = ({
   const [sharing, setSharing] = React.useState(false);
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentPlayingIndex, setCurrentPlayingIndex] = React.useState<number | null>(null);
-  const [shouldScrollToAyah, setShouldScrollToAyah] = React.useState(false);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
   const cardRefs = React.useRef<(HTMLDivElement | null)[]>([]);
@@ -41,6 +40,7 @@ const SurahView: React.FC<SurahViewProps> = ({
   const touchEndX = React.useRef<number>(0);
   const touchStartY = React.useRef<number>(0);
   const isSwiping = React.useRef<boolean>(false);
+  const isAutoScrolling = React.useRef<boolean>(false);
   
   const activeAyah = surah.ayahs[currentAyahIndex];
   // Reset view when Surah changes usually handled by parent, but basic safety here
@@ -52,73 +52,41 @@ const SurahView: React.FC<SurahViewProps> = ({
     cardRefs.current = cardRefs.current.slice(0, surah.ayahs.length);
   }, [surah.ayahs.length]);
 
-  // Sure veya ayet değiştiğinde scroll flag'ini set et
+  // Sürekli modda ayet değiştiğinde scroll yap (sadece programatik değişikliklerde)
   React.useEffect(() => {
-    if (navigationMode === 'scroll') {
-      setShouldScrollToAyah(true);
-    }
-  }, [surah.id, currentAyahIndex, navigationMode]);
+    if (navigationMode !== 'scroll') return;
 
-  // Scroll işlemini gerçekleştir
-  React.useEffect(() => {
-    if (!shouldScrollToAyah || navigationMode !== 'scroll') return;
-
-    const scrollToTarget = () => {
-      const targetCard = cardRefs.current[safeIndex];
-      if (targetCard) {
-        requestAnimationFrame(() => {
-          targetCard.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center',
-            inline: 'nearest'
-          });
-          setShouldScrollToAyah(false);
+    const targetCard = cardRefs.current[safeIndex];
+    if (targetCard) {
+      isAutoScrolling.current = true;
+      
+      requestAnimationFrame(() => {
+        targetCard.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center'
         });
-      }
-    };
-
-    // DOM'un hazır olmasını bekle
-    if (cardRefs.current[safeIndex]) {
-      scrollToTarget();
-    } else {
-      // Ref henüz hazır değilse MutationObserver ile bekle
-      const observer = new MutationObserver(() => {
-        if (cardRefs.current[safeIndex]) {
-          scrollToTarget();
-          observer.disconnect();
-        }
+        
+        // Scroll bittiğinde flag'i kaldır
+        setTimeout(() => {
+          isAutoScrolling.current = false;
+        }, 1000);
       });
-
-      const scrollContainer = document.querySelector('.flex-1.overflow-y-auto');
-      if (scrollContainer) {
-        observer.observe(scrollContainer, { childList: true, subtree: true });
-      }
-
-      // Timeout ile fallback
-      const timeout = setTimeout(() => {
-        observer.disconnect();
-        if (cardRefs.current[safeIndex]) {
-          scrollToTarget();
-        }
-      }, 2000);
-
-      return () => {
-        observer.disconnect();
-        clearTimeout(timeout);
-      };
     }
-  }, [shouldScrollToAyah, safeIndex, navigationMode]);
+  }, [surah.id]); // Sadece sure değiştiğinde çalış
 
-  // Sürekli modda scroll ile ayet takibi (IntersectionObserver)
+  // Sürekli modda scroll ile ayet takibi
   React.useEffect(() => {
     if (navigationMode !== 'scroll') return;
 
     const observer = new IntersectionObserver(
       (entries) => {
+        // Otomatik scroll sırasında güncelleme yapma
+        if (isAutoScrolling.current) return;
+
         entries.forEach((entry) => {
           if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
             const index = cardRefs.current.indexOf(entry.target as HTMLDivElement);
-            if (index !== -1 && index !== safeIndex && !shouldScrollToAyah) {
+            if (index !== -1 && index !== safeIndex) {
               onAyahChange(index);
             }
           }
@@ -137,7 +105,7 @@ const SurahView: React.FC<SurahViewProps> = ({
     return () => {
       observer.disconnect();
     };
-  }, [navigationMode, surah.ayahs.length, safeIndex, onAyahChange, shouldScrollToAyah]);
+  }, [navigationMode, surah.ayahs.length, safeIndex, onAyahChange]);
 
   const handleNext = () => {
     if (safeIndex < surah.ayahs.length - 1) {
@@ -283,7 +251,18 @@ const SurahView: React.FC<SurahViewProps> = ({
     
     // Sürekli modda seçilen ayete scroll yap
     if (navigationMode === 'scroll') {
-      setShouldScrollToAyah(true);
+      isAutoScrolling.current = true;
+      
+      setTimeout(() => {
+        const targetCard = cardRefs.current[newIndex];
+        if (targetCard) {
+          targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          setTimeout(() => {
+            isAutoScrolling.current = false;
+          }, 1000);
+        }
+      }, 100);
     }
   };
 
