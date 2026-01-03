@@ -275,6 +275,75 @@ const SurahView: React.FC<SurahViewProps> = ({
                     dangerouslySetInnerHTML={{ __html: formatTurkishText(ayah.textTurkish) }}
                   />
                 </div>
+
+                {/* Action Row */}
+                <div className="flex gap-4 mt-8 pt-4 border-t border-light-border/50 dark:border-dark-border/50 w-full justify-center opacity-80 hover:opacity-100 transition-opacity shrink-0">
+                  {/* Share Button */}
+                  <button 
+                    onClick={() => {
+                      onAyahChange(index);
+                      setTimeout(() => handleShare(), 100);
+                    }}
+                    disabled={sharing}
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg text-light-secondary dark:text-dark-secondary hover:text-green-500 transition-all disabled:opacity-50"
+                    title="Görsel Olarak Paylaş"
+                  >
+                    <Share2 size={20} className={sharing ? 'animate-pulse' : ''} />
+                    <span className="text-sm font-medium hidden md:block">
+                      {sharing ? 'Hazırlanıyor...' : 'Paylaş'}
+                    </span>
+                  </button>
+
+                  {/* Copy Button */}
+                  <button 
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(ayah.textTurkish);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      } catch (err) {
+                        console.error('Kopyalama başarısız:', err);
+                      }
+                    }}
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg text-light-secondary dark:text-dark-secondary hover:text-light-text dark:hover:text-dark-text transition-all"
+                    title="Türkçe Meali Kopyala"
+                  >
+                    {copied ? <Check size={20} className="text-green-500" /> : <Copy size={20} />}
+                    <span className="text-sm font-medium hidden md:block">
+                      {copied ? 'Kopyalandı' : 'Kopyala'}
+                    </span>
+                  </button>
+
+                  {/* Favorite Button */}
+                  <button 
+                    onClick={() => {
+                      onAyahChange(index);
+                      setTimeout(() => onToggleFavorite(), 100);
+                    }}
+                    className={`flex items-center gap-2 p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg transition-all ${index === safeIndex && isFavorite ? 'text-red-500' : 'text-light-secondary dark:text-dark-secondary hover:text-red-500'}`}
+                    title="Favorilere Ekle"
+                  >
+                    <Heart size={20} className={index === safeIndex && isFavorite ? 'fill-current' : ''} />
+                    <span className="text-sm font-medium hidden md:block">
+                      Beğen
+                    </span>
+                  </button>
+
+                  {/* Bookmark Button */}
+                  <button 
+                    onClick={() => {
+                      onAyahChange(index);
+                      setTimeout(() => onToggleBookmark(), 100);
+                    }}
+                    className={`flex items-center gap-2 p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg transition-all ${index === safeIndex && isBookmarked ? 'text-blue-500' : 'text-light-secondary dark:text-dark-secondary hover:text-blue-500'}`}
+                    title="Burada Kaldım"
+                  >
+                    <Bookmark size={20} className={index === safeIndex && isBookmarked ? 'fill-current' : ''} />
+                    <span className="text-sm font-medium hidden md:block">
+                      Burada Kaldım
+                    </span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -409,7 +478,7 @@ const SurahView: React.FC<SurahViewProps> = ({
             {/* Mode Toggle Button */}
             <button 
                 onClick={toggleNavigationMode}
-                className="flex items-center gap-2 px-3 py-2.5 md:px-4 md:py-3 rounded-xl bg-light-accent dark:bg-dark-accent text-white border border-light-accent dark:border-dark-accent hover:opacity-90 transition-all"
+                className="flex items-center gap-2 px-3 py-2.5 md:px-4 md:py-3 rounded-xl bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text border border-light-border dark:border-dark-border hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
                 title="Navigasyon Modunu Değiştir"
             >
                 {getModeIcon()}
