@@ -25,6 +25,8 @@ const SurahView: React.FC<SurahViewProps> = ({
   const [copied, setCopied] = React.useState(false);
   const [sharing, setSharing] = React.useState(false);
   const cardRef = React.useRef<HTMLDivElement>(null);
+  const touchStartX = React.useRef<number>(0);
+  const touchEndX = React.useRef<number>(0);
   
   const activeAyah = surah.ayahs[currentAyahIndex];
   // Reset view when Surah changes usually handled by parent, but basic safety here
@@ -41,6 +43,34 @@ const SurahView: React.FC<SurahViewProps> = ({
     if (safeIndex > 0) {
       onAyahChange(safeIndex - 1);
     }
+  };
+
+  // Swipe handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    const swipeDistance = touchStartX.current - touchEndX.current;
+    const minSwipeDistance = 50; // Minimum kaydırma mesafesi
+
+    if (Math.abs(swipeDistance) > minSwipeDistance) {
+      if (swipeDistance > 0) {
+        // Sağdan sola kaydırma - Sonraki ayet
+        handleNext();
+      } else {
+        // Soldan sağa kaydırma - Önceki ayet
+        handlePrev();
+      }
+    }
+
+    // Reset
+    touchStartX.current = 0;
+    touchEndX.current = 0;
   };
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -153,7 +183,12 @@ const SurahView: React.FC<SurahViewProps> = ({
       </div>
 
       {/* Main Card Area - Scrollable */}
-      <div className="flex-1 overflow-y-auto relative scroll-smooth bg-light-bg dark:bg-dark-bg">
+      <div 
+        className="flex-1 overflow-y-auto relative scroll-smooth bg-light-bg dark:bg-dark-bg"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Centering Container */}
         <div className="min-h-full flex flex-col items-center justify-center p-3 md:p-8">
             
