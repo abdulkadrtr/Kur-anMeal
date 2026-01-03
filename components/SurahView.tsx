@@ -26,7 +26,7 @@ const SurahView: React.FC<SurahViewProps> = ({
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [sharing, setSharing] = React.useState(false);
-  const [navigationMode, setNavigationMode] = React.useState<NavigationMode>('arrows');
+  const [navigationMode, setNavigationMode] = React.useState<NavigationMode>('scroll');
   const cardRef = React.useRef<HTMLDivElement>(null);
   const cardRefs = React.useRef<(HTMLDivElement | null)[]>([]);
   const touchStartX = React.useRef<number>(0);
@@ -43,6 +43,36 @@ const SurahView: React.FC<SurahViewProps> = ({
   React.useEffect(() => {
     cardRefs.current = cardRefs.current.slice(0, surah.ayahs.length);
   }, [surah.ayahs.length]);
+
+  // Sürekli modda scroll ile ayet takibi
+  React.useEffect(() => {
+    if (navigationMode !== 'scroll') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+            const index = cardRefs.current.indexOf(entry.target as HTMLDivElement);
+            if (index !== -1 && index !== safeIndex) {
+              onAyahChange(index);
+            }
+          }
+        });
+      },
+      {
+        threshold: 0.5,
+        rootMargin: '-20% 0px -20% 0px'
+      }
+    );
+
+    cardRefs.current.forEach((card) => {
+      if (card) observer.observe(card);
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [navigationMode, surah.ayahs.length, safeIndex, onAyahChange]);
 
   const handleNext = () => {
     if (safeIndex < surah.ayahs.length - 1) {
@@ -90,7 +120,7 @@ const SurahView: React.FC<SurahViewProps> = ({
     }
 
     const swipeDistance = touchStartX.current - touchEndX.current;
-    const minSwipeDistance = 80; // Daha yüksek hassasiyet
+    const minSwipeDistance = 70; // Daha yüksek hassasiyet
 
     if (Math.abs(swipeDistance) > minSwipeDistance) {
       if (swipeDistance > 0) {
@@ -110,7 +140,7 @@ const SurahView: React.FC<SurahViewProps> = ({
   };
 
   const toggleNavigationMode = () => {
-    const modes: NavigationMode[] = ['arrows', 'swipe', 'scroll'];
+    const modes: NavigationMode[] = ['scroll', 'swipe', 'arrows'];
     const currentIndex = modes.indexOf(navigationMode);
     const nextIndex = (currentIndex + 1) % modes.length;
     setNavigationMode(modes[nextIndex]);
