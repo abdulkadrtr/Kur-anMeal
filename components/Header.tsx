@@ -1,9 +1,7 @@
 import React from 'react';
-import { Search, Sun, Moon, Menu, Heart, Shuffle, Bookmark } from 'lucide-react';
+import { Search, Menu, Heart, Shuffle, Bookmark, Settings } from 'lucide-react';
 
 interface HeaderProps {
-  isDarkMode: boolean;
-  toggleTheme: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   toggleSidebar: () => void;
@@ -11,18 +9,18 @@ interface HeaderProps {
   onFavoritesClick?: () => void;
   onBookmarksClick?: () => void;
   onRandomClick?: () => void;
+  onSettingsClick?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
-  isDarkMode, 
-  toggleTheme, 
   searchQuery, 
   setSearchQuery, 
   toggleSidebar,
   onLogoClick,
   onFavoritesClick,
   onBookmarksClick,
-  onRandomClick
+  onRandomClick,
+  onSettingsClick
 }) => {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between px-4 md:px-6 py-4 transition-colors duration-300 border-b shadow-sm bg-light-card dark:bg-dark-card border-light-border dark:border-dark-border h-16">
@@ -98,12 +96,13 @@ const Header: React.FC<HeaderProps> = ({
         >
           <Heart size={20} className="hover:text-red-500 transition-colors" />
         </button>
+        
         <button
-          onClick={toggleTheme}
+          onClick={onSettingsClick}
           className="p-2 rounded-full text-light-secondary dark:text-dark-secondary hover:bg-light-bg dark:hover:bg-dark-bg transition-colors duration-300"
-          aria-label="Temayı Değiştir"
+          aria-label="Ayarlar"
         >
-          {isDarkMode ? <Sun size={20} className="hover:text-dark-accent" /> : <Moon size={20} className="hover:text-light-accent" />}
+          <Settings size={20} className="hover:text-light-accent dark:hover:text-dark-accent transition-colors" />
         </button>
       </div>
     </header>

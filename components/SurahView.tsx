@@ -1,9 +1,10 @@
 import React from 'react';
 import { Surah } from '../types';
 import { BISMILLAH } from '../constants';
-import { Copy, ChevronLeft, ChevronRight, Heart, Check, Bookmark, Share2, MousePointer, Hand, List, Play, Pause } from 'lucide-react';
+import { Copy, ChevronLeft, ChevronRight, Heart, Check, Bookmark, Share2, Play, Pause } from 'lucide-react';
 
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
+type ReciterType = 'husary' | 'alqatami';
 
 interface SurahViewProps {
   surah: Surah;
@@ -13,6 +14,8 @@ interface SurahViewProps {
   onToggleFavorite: () => void;
   isBookmarked: boolean;
   onToggleBookmark: () => void;
+  navigationMode: NavigationMode;
+  reciter: ReciterType;
 }
 
 const SurahView: React.FC<SurahViewProps> = ({ 
@@ -22,11 +25,12 @@ const SurahView: React.FC<SurahViewProps> = ({
   isFavorite,
   onToggleFavorite,
   isBookmarked,
-  onToggleBookmark
+  onToggleBookmark,
+  navigationMode,
+  reciter
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [sharing, setSharing] = React.useState(false);
-  const [navigationMode, setNavigationMode] = React.useState<NavigationMode>('scroll');
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentPlayingIndex, setCurrentPlayingIndex] = React.useState<number | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
@@ -89,11 +93,17 @@ const SurahView: React.FC<SurahViewProps> = ({
     }
   };
 
-  // Ses URL'ini oluştur
+  // Ses URL'ini oluştur - Reciter'a göre
   const getAudioUrl = (surahNumber: number, ayahNumber: number) => {
     const surahPadded = String(surahNumber).padStart(3, '0');
     const ayahPadded = String(ayahNumber).padStart(3, '0');
-    return `https://everyayah.com/data/Husary_128kbps/${surahPadded}${ayahPadded}.mp3`;
+    
+    if (reciter === 'husary') {
+      return `https://everyayah.com/data/Husary_128kbps/${surahPadded}${ayahPadded}.mp3`;
+    } else {
+      // Nasser Alqatami
+      return `https://everyayah.com/data/Nasser_Alqatami_128kbps/${surahPadded}${ayahPadded}.mp3`;
+    }
   };
 
   // Ses çalma/durdurma
@@ -200,35 +210,6 @@ const SurahView: React.FC<SurahViewProps> = ({
     touchEndX.current = 0;
     touchStartY.current = 0;
     isSwiping.current = false;
-  };
-
-  const toggleNavigationMode = () => {
-    const modes: NavigationMode[] = ['scroll', 'swipe', 'arrows'];
-    const currentIndex = modes.indexOf(navigationMode);
-    const nextIndex = (currentIndex + 1) % modes.length;
-    setNavigationMode(modes[nextIndex]);
-  };
-
-  const getModeIcon = () => {
-    switch (navigationMode) {
-      case 'arrows':
-        return <MousePointer size={18} />;
-      case 'swipe':
-        return <Hand size={18} />;
-      case 'scroll':
-        return <List size={18} />;
-    }
-  };
-
-  const getModeText = () => {
-    switch (navigationMode) {
-      case 'arrows':
-        return 'Yön Tuşları';
-      case 'swipe':
-        return 'Kaydırma';
-      case 'scroll':
-        return 'Sürekli';
-    }
   };
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -671,16 +652,6 @@ const SurahView: React.FC<SurahViewProps> = ({
                     ))}
                 </select>
             </div>
-
-            {/* Mode Toggle Button */}
-            <button 
-                onClick={toggleNavigationMode}
-                className="flex items-center gap-2 px-3 py-2.5 md:px-4 md:py-3 rounded-xl bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text border border-light-border dark:border-dark-border hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
-                title="Navigasyon Modunu Değiştir"
-            >
-                {getModeIcon()}
-                <span className="hidden md:inline font-medium">{getModeText()}</span>
-            </button>
 
             {/* Next Button - Sadece arrows modunda */}
             {navigationMode === 'arrows' && (

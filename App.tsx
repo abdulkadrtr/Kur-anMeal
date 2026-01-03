@@ -5,14 +5,28 @@ import SurahView from './components/SurahView';
 import HomeView from './components/HomeView';
 import FavoritesView from './components/FavoritesView';
 import BookmarksView from './components/BookmarksView';
+import SettingsView from './components/SettingsView';
 import { SURAH_METADATA } from './constants';
 import { Surah } from './types';
 
-type ViewState = 'home' | 'reader' | 'favorites' | 'bookmarks';
+type ViewState = 'home' | 'reader' | 'favorites' | 'bookmarks' | 'settings';
+type NavigationMode = 'arrows' | 'swipe' | 'scroll';
+type ReciterType = 'husary' | 'alqatami';
 
 const App: React.FC = () => {
   // --- State Management ---
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('isDarkMode');
+    return saved ? JSON.parse(saved) : true;
+  });
+  const [navigationMode, setNavigationMode] = useState<NavigationMode>(() => {
+    const saved = localStorage.getItem('navigationMode');
+    return (saved as NavigationMode) || 'scroll';
+  });
+  const [reciter, setReciter] = useState<ReciterType>(() => {
+    const saved = localStorage.getItem('reciter');
+    return (saved as ReciterType) || 'husary';
+  });
   const [currentView, setCurrentView] = useState<ViewState>('home');
   
   // Data State
@@ -104,7 +118,18 @@ const App: React.FC = () => {
     } else {
       document.documentElement.classList.remove('dark');
     }
+    localStorage.setItem('isDarkMode', JSON.stringify(isDarkMode));
   }, [isDarkMode]);
+
+  // Persist Navigation Mode
+  useEffect(() => {
+    localStorage.setItem('navigationMode', navigationMode);
+  }, [navigationMode]);
+
+  // Persist Reciter
+  useEffect(() => {
+    localStorage.setItem('reciter', reciter);
+  }, [reciter]);
 
   // Persist Favorites
   useEffect(() => {
@@ -143,6 +168,12 @@ const App: React.FC = () => {
   const goBookmarks = () => {
     setSearchQuery("");
     setCurrentView('bookmarks');
+    closeSidebar();
+  };
+
+  const goSettings = () => {
+    setSearchQuery("");
+    setCurrentView('settings');
     closeSidebar();
   };
   
@@ -240,8 +271,6 @@ const App: React.FC = () => {
     <div className="flex flex-col h-[100dvh] overflow-hidden font-sans">
       {/* Header */}
       <Header 
-        isDarkMode={isDarkMode} 
-        toggleTheme={toggleTheme} 
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         toggleSidebar={toggleSidebar}
@@ -249,6 +278,7 @@ const App: React.FC = () => {
         onFavoritesClick={goFavorites}
         onBookmarksClick={goBookmarks}
         onRandomClick={handleRandomAyah}
+        onSettingsClick={goSettings}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -280,6 +310,15 @@ const App: React.FC = () => {
               surahs={surahs}
               onNavigate={handleNavigateToAyah}
             />
+          ) : currentView === 'settings' ? (
+            <SettingsView 
+              isDarkMode={isDarkMode}
+              onToggleTheme={toggleTheme}
+              navigationMode={navigationMode}
+              onNavigationModeChange={setNavigationMode}
+              reciter={reciter}
+              onReciterChange={setReciter}
+            />
           ) : currentSurah ? (
             <SurahView 
               surah={currentSurah} 
@@ -289,6 +328,8 @@ const App: React.FC = () => {
               onToggleFavorite={() => toggleFavorite(currentSurah.id, currentSurah.ayahs[currentAyahIndex]?.id)}
               isBookmarked={isAyahBookmarked(currentSurah.id, currentSurah.ayahs[currentAyahIndex]?.id)}
               onToggleBookmark={() => toggleBookmark(currentSurah.id, currentSurah.ayahs[currentAyahIndex]?.id)}
+              navigationMode={navigationMode}
+              reciter={reciter}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center text-light-secondary dark:text-dark-secondary">
