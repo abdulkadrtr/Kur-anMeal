@@ -139,7 +139,18 @@ const SurahView: React.FC<SurahViewProps> = ({
   };
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onAyahChange(Number(e.target.value));
+    const newIndex = Number(e.target.value);
+    onAyahChange(newIndex);
+    
+    // Sürekli modda seçilen ayete scroll yap
+    if (navigationMode === 'scroll') {
+      setTimeout(() => {
+        const targetCard = cardRefs.current[newIndex];
+        if (targetCard) {
+          targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
   };
 
   const handleCopy = async () => {
