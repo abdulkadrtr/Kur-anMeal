@@ -141,12 +141,12 @@ const SurahView: React.FC<SurahViewProps> = ({
   };
 
   // Ses çalma/durdurma
-  const handlePlayAudio = (index: number) => {
+  const handlePlayAudio = (index: number, isAuto: boolean = false) => {
     const ayah = surah.ayahs[index];
     const audioUrl = getAudioUrl(surah.id, ayah.numberInSurah);
 
-    // Aynı ayete tekrar basılırsa durdur
-    if (currentPlayingIndex === index && isPlaying) {
+    // Aynı ayete tekrar basılırsa durdur (sadece manuel çalmalarda)
+    if (!isAuto && currentPlayingIndex === index && isPlaying) {
       audioRef.current?.pause();
       setIsPlaying(false);
       setCurrentPlayingIndex(null);
@@ -175,9 +175,9 @@ const SurahView: React.FC<SurahViewProps> = ({
       setCurrentPlayingIndex(null);
       
       // Otomatik oynatma aktifse bir sonraki ayete geç
-      if (isAutoPlaying && index < surah.ayahs.length - 1) {
+      if (isAuto && index < surah.ayahs.length - 1) {
         playNextAyah(index + 1);
-      } else if (isAutoPlaying && index === surah.ayahs.length - 1) {
+      } else if (isAuto && index === surah.ayahs.length - 1) {
         // Son ayete ulaşıldı, otomatik oynatmayı durdur
         setIsAutoPlaying(false);
       }
@@ -190,7 +190,7 @@ const SurahView: React.FC<SurahViewProps> = ({
       setCurrentPlayingIndex(null);
       
       // Otomatik oynatma aktifse durdur
-      if (isAutoPlaying) {
+      if (isAuto) {
         setIsAutoPlaying(false);
       }
     };
@@ -212,7 +212,7 @@ const SurahView: React.FC<SurahViewProps> = ({
       
       // Sesi çal
       setTimeout(() => {
-        handlePlayAudio(nextIndex);
+        handlePlayAudio(nextIndex, true);
         isAutoScrolling.current = false;
       }, 500);
     }, 300);
@@ -231,7 +231,7 @@ const SurahView: React.FC<SurahViewProps> = ({
     } else {
       // Başlat
       setIsAutoPlaying(true);
-      handlePlayAudio(safeIndex);
+      handlePlayAudio(safeIndex, true);
     }
   };
 
