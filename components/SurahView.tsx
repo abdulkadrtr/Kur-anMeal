@@ -283,12 +283,7 @@ const SurahView: React.FC<SurahViewProps> = ({
     
     // Sürekli modda seçilen ayete scroll yap
     if (navigationMode === 'scroll') {
-      setTimeout(() => {
-        const targetCard = cardRefs.current[newIndex];
-        if (targetCard) {
-          targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 100);
+      setShouldScrollToAyah(true);
     }
   };
 
