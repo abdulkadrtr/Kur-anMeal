@@ -28,6 +28,7 @@ const SurahView: React.FC<SurahViewProps> = ({
   const [sharing, setSharing] = React.useState(false);
   const [navigationMode, setNavigationMode] = React.useState<NavigationMode>('arrows');
   const cardRef = React.useRef<HTMLDivElement>(null);
+  const cardRefs = React.useRef<(HTMLDivElement | null)[]>([]);
   const touchStartX = React.useRef<number>(0);
   const touchEndX = React.useRef<number>(0);
   const touchStartY = React.useRef<number>(0);
@@ -37,6 +38,11 @@ const SurahView: React.FC<SurahViewProps> = ({
   // Reset view when Surah changes usually handled by parent, but basic safety here
   const safeIndex = activeAyah ? currentAyahIndex : 0;
   const currentAyah = surah.ayahs[safeIndex];
+
+  // Initialize cardRefs array
+  React.useEffect(() => {
+    cardRefs.current = cardRefs.current.slice(0, surah.ayahs.length);
+  }, [surah.ayahs.length]);
 
   const handleNext = () => {
     if (safeIndex < surah.ayahs.length - 1) {
@@ -204,6 +210,65 @@ const SurahView: React.FC<SurahViewProps> = ({
     }
   };
 
+  const handleShareScroll = async (index: number) => {
+    const targetRef = cardRefs.current[index];
+    if (!targetRef) return;
+    
+    setSharing(true);
+    try {
+      // Dinamik import
+      const html2canvas = (await import('html2canvas')).default;
+      
+      // Kartın screenshot'ını al
+      const canvas = await html2canvas(targetRef, {
+        backgroundColor: null,
+        scale: 3,
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        removeContainer: true
+      });
+      
+      // Canvas'ı blob'a çevir
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        
+        const ayah = surah.ayahs[index];
+        const fileName = `${surah.nameTurkish}-${ayah.numberInSurah}.png`;
+        
+        // Mobil cihaz kontrolü
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Sadece mobilde Web Share API kullan
+        if (isMobile && navigator.share && navigator.canShare) {
+          try {
+            const file = new File([blob], fileName, { type: 'image/png' });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({
+                files: [file],
+                title: `${surah.nameTurkish} - ${ayah.numberInSurah}. Ayet`,
+                text: 'Kur\'an-ı Kerim\'den bir ayet'
+              });
+              setSharing(false);
+              return;
+            }
+          } catch (err) {
+            console.log('Paylaşım iptal edildi');
+          }
+        }
+        
+        // Bilgisayarda veya paylaşım başarısız olursa direkt indir
+        downloadImage(blob, fileName);
+        setSharing(false);
+        
+      }, 'image/png');
+      
+    } catch (err) {
+      console.error('Paylaşma hatası:', err);
+      setSharing(false);
+    }
+  };
+
   const downloadImage = (blob: Blob, fileName: string) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -249,6 +314,7 @@ const SurahView: React.FC<SurahViewProps> = ({
             {surah.ayahs.map((ayah, index) => (
               <div 
                 key={ayah.id}
+                ref={(el) => (cardRefs.current[index] = el)}
                 className="w-full bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border border-light-border dark:border-dark-border p-5 md:p-10 relative flex flex-col items-center text-center transition-all duration-300"
               >
                 {/* Sure Adı ve Ayet Numarası */}
@@ -280,10 +346,7 @@ const SurahView: React.FC<SurahViewProps> = ({
                 <div className="flex gap-4 mt-8 pt-4 border-t border-light-border/50 dark:border-dark-border/50 w-full justify-center opacity-80 hover:opacity-100 transition-opacity shrink-0">
                   {/* Share Button */}
                   <button 
-                    onClick={() => {
-                      onAyahChange(index);
-                      setTimeout(() => handleShare(), 100);
-                    }}
+                    onClick={() => handleShareScroll(index)}
                     disabled={sharing}
                     className="flex items-center gap-2 p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg text-light-secondary dark:text-dark-secondary hover:text-green-500 transition-all disabled:opacity-50"
                     title="Görsel Olarak Paylaş"
