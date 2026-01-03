@@ -81,6 +81,19 @@ const SurahView: React.FC<SurahViewProps> = ({
     };
   }, [navigationMode, surah.ayahs.length, safeIndex, onAyahChange]);
 
+  // Sürekli modda sayfa açıldığında veya ayet değiştiğinde scroll yap
+  React.useEffect(() => {
+    if (navigationMode === 'scroll' && cardRefs.current[safeIndex]) {
+      // Kısa bir gecikme ile scroll yap (DOM'un render olması için)
+      setTimeout(() => {
+        const targetCard = cardRefs.current[safeIndex];
+        if (targetCard) {
+          targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+    }
+  }, [navigationMode, safeIndex, surah.id]); // surah.id değişince de çalışsın
+
   const handleNext = () => {
     if (safeIndex < surah.ayahs.length - 1) {
       onAyahChange(safeIndex + 1);
