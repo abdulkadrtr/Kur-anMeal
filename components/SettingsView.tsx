@@ -34,7 +34,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
           </h2>
           <div className="space-y-3">
             <button
-              onClick={() => !isDarkMode && onToggleTheme()}
+              onClick={() => onToggleTheme()}
               className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
                 !isDarkMode
                   ? 'border-light-accent bg-light-accent/10 text-light-text'
@@ -53,7 +53,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
             </button>
 
             <button
-              onClick={() => isDarkMode && onToggleTheme()}
+              onClick={() => onToggleTheme()}
               className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
                 isDarkMode
                   ? 'border-dark-accent bg-dark-accent/10 text-dark-text'
@@ -166,7 +166,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="flex items-center gap-3">
                 <div className="text-left">
                   <div className="font-medium">Mahmud Halil Husari</div>
-                  <div className="text-sm text-light-secondary dark:text-dark-secondary">Klasik okuyuş</div>
                 </div>
               </div>
               {reciter === 'husary' && (
@@ -187,7 +186,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="flex items-center gap-3">
                 <div className="text-left">
                   <div className="font-medium">Nasser Alqatami</div>
-                  <div className="text-sm text-light-secondary dark:text-dark-secondary">Modern okuyuş</div>
                 </div>
               </div>
               {reciter === 'alqatami' && (

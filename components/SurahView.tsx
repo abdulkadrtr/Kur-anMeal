@@ -94,9 +94,16 @@ const SurahView: React.FC<SurahViewProps> = ({
   };
 
   // Ses URL'ini oluştur - Reciter'a göre
-  const getAudioUrl = (surahNumber: number, ayahNumber: number) => {
+  const getAudioUrl = (surahNumber: number, ayahNumber: number | string) => {
     const surahPadded = String(surahNumber).padStart(3, '0');
-    const ayahPadded = String(ayahNumber).padStart(3, '0');
+    
+    // Bitişik ayetler için (örn: "3-4") ilk numarayı al
+    let ayahNum = ayahNumber;
+    if (typeof ayahNumber === 'string' && ayahNumber.includes('-')) {
+      ayahNum = parseInt(ayahNumber.split('-')[0]);
+    }
+    
+    const ayahPadded = String(ayahNum).padStart(3, '0');
     
     if (reciter === 'husary') {
       return `https://everyayah.com/data/Husary_128kbps/${surahPadded}${ayahPadded}.mp3`;
