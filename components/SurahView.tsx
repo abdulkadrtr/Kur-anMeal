@@ -509,34 +509,32 @@ const SurahView: React.FC<SurahViewProps> = ({
       <div className="flex-none bg-light-card dark:bg-dark-card border-t border-light-border dark:border-dark-border p-3 md:p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-30 shrink-0">
          <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
             
-            {/* Previous Button - Sadece arrows ve swipe modunda */}
-            {navigationMode !== 'scroll' && (
+            {/* Previous Button - Sadece arrows modunda */}
+            {navigationMode === 'arrows' && (
               <button 
                   onClick={handlePrev}
                   disabled={safeIndex === 0}
-                  className={`flex items-center gap-2 px-3 py-2.5 md:px-4 md:py-3 rounded-xl bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text border border-light-border dark:border-dark-border hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${navigationMode === 'swipe' ? 'opacity-0 pointer-events-none' : ''}`}
+                  className="flex items-center gap-2 px-3 py-2.5 md:px-4 md:py-3 rounded-xl bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text border border-light-border dark:border-dark-border hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                   <ChevronLeft size={20} />
                   <span className="hidden md:inline font-medium">Önceki</span>
               </button>
             )}
 
-            {/* Ayah Selector - Sadece arrows ve swipe modunda */}
-            {navigationMode !== 'scroll' && (
-              <div className="flex-1 max-w-xs mx-auto">
-                  <select 
-                      value={safeIndex}
-                      onChange={handleSelectChange}
-                      className="w-full text-center appearance-none bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text border border-light-border dark:border-dark-border rounded-xl py-2.5 px-4 md:py-3 md:px-8 font-medium focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent outline-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm md:text-base"
-                  >
-                      {surah.ayahs.map((a, idx) => (
-                          <option key={a.id} value={idx}>
-                              {a.numberInSurah}. Ayet
-                          </option>
-                      ))}
-                  </select>
-              </div>
-            )}
+            {/* Ayah Selector - Tüm modlarda */}
+            <div className="flex-1 max-w-xs mx-auto">
+                <select 
+                    value={safeIndex}
+                    onChange={handleSelectChange}
+                    className="w-full text-center appearance-none bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text border border-light-border dark:border-dark-border rounded-xl py-2.5 px-4 md:py-3 md:px-8 font-medium focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent outline-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm md:text-base"
+                >
+                    {surah.ayahs.map((a, idx) => (
+                        <option key={a.id} value={idx}>
+                            {a.numberInSurah}. Ayet
+                        </option>
+                    ))}
+                </select>
+            </div>
 
             {/* Mode Toggle Button */}
             <button 
@@ -548,12 +546,12 @@ const SurahView: React.FC<SurahViewProps> = ({
                 <span className="hidden md:inline font-medium">{getModeText()}</span>
             </button>
 
-            {/* Next Button - Sadece arrows ve swipe modunda */}
-            {navigationMode !== 'scroll' && (
+            {/* Next Button - Sadece arrows modunda */}
+            {navigationMode === 'arrows' && (
               <button 
                   onClick={handleNext}
                   disabled={safeIndex === surah.ayahs.length - 1}
-                  className={`flex items-center gap-2 px-3 py-2.5 md:px-4 md:py-3 rounded-xl bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text border border-light-border dark:border-dark-border hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${navigationMode === 'swipe' ? 'opacity-0 pointer-events-none' : ''}`}
+                  className="flex items-center gap-2 px-3 py-2.5 md:px-4 md:py-3 rounded-xl bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text border border-light-border dark:border-dark-border hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                   <span className="hidden md:inline font-medium">Sonraki</span>
                   <ChevronRight size={20} />
