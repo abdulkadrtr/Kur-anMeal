@@ -1,7 +1,7 @@
 import React from 'react';
 import { Surah } from '../types';
 import { BISMILLAH } from '../constants';
-import { Copy, ChevronLeft, ChevronRight, Heart, Check, Bookmark, Share2, MousePointer, Hand, List } from 'lucide-react';
+import { Copy, ChevronLeft, ChevronRight, Heart, Check, Bookmark, Share2, MousePointer, Hand, List, Play, Pause } from 'lucide-react';
 
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
 
@@ -27,6 +27,9 @@ const SurahView: React.FC<SurahViewProps> = ({
   const [copied, setCopied] = React.useState(false);
   const [sharing, setSharing] = React.useState(false);
   const [navigationMode, setNavigationMode] = React.useState<NavigationMode>('scroll');
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [currentPlayingIndex, setCurrentPlayingIndex] = React.useState<number | null>(null);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
   const cardRefs = React.useRef<(HTMLDivElement | null)[]>([]);
   const touchStartX = React.useRef<number>(0);
@@ -85,6 +88,66 @@ const SurahView: React.FC<SurahViewProps> = ({
       onAyahChange(safeIndex - 1);
     }
   };
+
+  // Ses URL'ini oluştur
+  const getAudioUrl = (surahNumber: number, ayahNumber: number) => {
+    const surahPadded = String(surahNumber).padStart(3, '0');
+    const ayahPadded = String(ayahNumber).padStart(3, '0');
+    return `https://everyayah.com/data/Husary_128kbps/${surahPadded}${ayahPadded}.mp3`;
+  };
+
+  // Ses çalma/durdurma
+  const handlePlayAudio = (index: number) => {
+    const ayah = surah.ayahs[index];
+    const audioUrl = getAudioUrl(surah.id, ayah.numberInSurah);
+
+    // Aynı ayete tekrar basılırsa durdur
+    if (currentPlayingIndex === index && isPlaying) {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+      setCurrentPlayingIndex(null);
+      return;
+    }
+
+    // Yeni ses çal
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+    setCurrentPlayingIndex(index);
+    setIsPlaying(true);
+
+    audio.play().catch((err) => {
+      console.error('Ses çalma hatası:', err);
+      setIsPlaying(false);
+      setCurrentPlayingIndex(null);
+    });
+
+    // Ses bittiğinde
+    audio.onended = () => {
+      setIsPlaying(false);
+      setCurrentPlayingIndex(null);
+    };
+
+    // Hata durumunda
+    audio.onerror = () => {
+      console.error('Ses yükleme hatası');
+      setIsPlaying(false);
+      setCurrentPlayingIndex(null);
+    };
+  };
+
+  // Component unmount olduğunda sesi durdur
+  React.useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   // Swipe handlers - sadece swipe modunda çalışacak
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -385,6 +448,22 @@ const SurahView: React.FC<SurahViewProps> = ({
 
                 {/* Action Row */}
                 <div className="flex gap-4 mt-8 pt-4 border-t border-light-border/50 dark:border-dark-border/50 w-full justify-center opacity-80 hover:opacity-100 transition-opacity shrink-0">
+                  {/* Play Button */}
+                  <button 
+                    onClick={() => handlePlayAudio(index)}
+                    className={`flex items-center gap-2 p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg transition-all ${currentPlayingIndex === index && isPlaying ? 'text-green-500' : 'text-light-secondary dark:text-dark-secondary hover:text-green-500'}`}
+                    title={currentPlayingIndex === index && isPlaying ? 'Durdur' : 'Dinle'}
+                  >
+                    {currentPlayingIndex === index && isPlaying ? (
+                      <Pause size={20} className="fill-current" />
+                    ) : (
+                      <Play size={20} />
+                    )}
+                    <span className="text-sm font-medium hidden md:block">
+                      {currentPlayingIndex === index && isPlaying ? 'Durdur' : 'Dinle'}
+                    </span>
+                  </button>
+
                   {/* Share Button */}
                   <button 
                     onClick={() => handleShareScroll(index)}
@@ -492,6 +571,22 @@ const SurahView: React.FC<SurahViewProps> = ({
 
               {/* Action Row */}
               <div className="flex gap-4 mt-8 pt-4 border-t border-light-border/50 dark:border-dark-border/50 w-full justify-center opacity-80 hover:opacity-100 transition-opacity shrink-0">
+                {/* Play Button */}
+                <button 
+                  onClick={() => handlePlayAudio(safeIndex)}
+                  className={`flex items-center gap-2 p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg transition-all ${currentPlayingIndex === safeIndex && isPlaying ? 'text-green-500' : 'text-light-secondary dark:text-dark-secondary hover:text-green-500'}`}
+                  title={currentPlayingIndex === safeIndex && isPlaying ? 'Durdur' : 'Dinle'}
+                >
+                  {currentPlayingIndex === safeIndex && isPlaying ? (
+                    <Pause size={20} className="fill-current" />
+                  ) : (
+                    <Play size={20} />
+                  )}
+                  <span className="text-sm font-medium hidden md:block">
+                    {currentPlayingIndex === safeIndex && isPlaying ? 'Durdur' : 'Dinle'}
+                  </span>
+                </button>
+
                 {/* Share Button */}
                 <button 
                   onClick={handleShare}
