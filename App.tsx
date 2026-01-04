@@ -12,6 +12,7 @@ import { Surah } from './types';
 type ViewState = 'home' | 'reader' | 'favorites' | 'bookmarks' | 'settings';
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
 type ReciterType = 'husary' | 'alqatami';
+type DisplayMode = 'both' | 'arabic' | 'turkish';
 
 const App: React.FC = () => {
   // --- State Management ---
@@ -26,6 +27,10 @@ const App: React.FC = () => {
   const [reciter, setReciter] = useState<ReciterType>(() => {
     const saved = localStorage.getItem('reciter');
     return (saved as ReciterType) || 'husary';
+  });
+  const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
+    const saved = localStorage.getItem('displayMode');
+    return (saved as DisplayMode) || 'both';
   });
   const [currentView, setCurrentView] = useState<ViewState>('home');
   
@@ -130,6 +135,11 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('reciter', reciter);
   }, [reciter]);
+
+  // Persist Display Mode
+  useEffect(() => {
+    localStorage.setItem('displayMode', displayMode);
+  }, [displayMode]);
 
   // Persist Favorites
   useEffect(() => {
@@ -318,6 +328,8 @@ const App: React.FC = () => {
               onNavigationModeChange={setNavigationMode}
               reciter={reciter}
               onReciterChange={setReciter}
+              displayMode={displayMode}
+              onDisplayModeChange={setDisplayMode}
             />
           ) : currentSurah ? (
             <SurahView 
@@ -330,6 +342,7 @@ const App: React.FC = () => {
               onToggleBookmark={() => toggleBookmark(currentSurah.id, currentSurah.ayahs[currentAyahIndex]?.id)}
               navigationMode={navigationMode}
               reciter={reciter}
+              displayMode={displayMode}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center text-light-secondary dark:text-dark-secondary">

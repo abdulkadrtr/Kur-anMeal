@@ -5,6 +5,7 @@ import { Copy, ChevronLeft, ChevronRight, Heart, Check, Bookmark, Share2, Play, 
 
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
 type ReciterType = 'husary' | 'alqatami';
+type DisplayMode = 'both' | 'arabic' | 'turkish';
 
 interface SurahViewProps {
   surah: Surah;
@@ -16,6 +17,7 @@ interface SurahViewProps {
   onToggleBookmark: () => void;
   navigationMode: NavigationMode;
   reciter: ReciterType;
+  displayMode: DisplayMode;
 }
 
 const SurahView: React.FC<SurahViewProps> = ({ 
@@ -27,7 +29,8 @@ const SurahView: React.FC<SurahViewProps> = ({
   isBookmarked,
   onToggleBookmark,
   navigationMode,
-  reciter
+  reciter,
+  displayMode
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [sharing, setSharing] = React.useState(false);
@@ -507,22 +510,28 @@ const SurahView: React.FC<SurahViewProps> = ({
                 </div>
 
                 {/* Arabic Text */}
-                <div className="w-full mb-4 md:mb-8 px-2" dir="rtl">
-                  <p className="font-arabic text-3xl md:text-5xl leading-[2.0] md:leading-[2.2] text-light-arabic dark:text-dark-arabic text-center w-full break-words whitespace-normal">
-                    {ayah.textArabic}
-                  </p>
-                </div>
+                {(displayMode === 'both' || displayMode === 'arabic') && (
+                  <div className="w-full mb-4 md:mb-8 px-2" dir="rtl">
+                    <p className="font-arabic text-3xl md:text-5xl leading-[2.0] md:leading-[2.2] text-light-arabic dark:text-dark-arabic text-center w-full break-words whitespace-normal">
+                      {ayah.textArabic}
+                    </p>
+                  </div>
+                )}
 
                 {/* Separator */}
-                <div className="w-16 md:w-24 h-0.5 rounded-full bg-light-border dark:bg-dark-border mb-4 md:mb-8 shrink-0"></div>
+                {displayMode === 'both' && (
+                  <div className="w-16 md:w-24 h-0.5 rounded-full bg-light-border dark:bg-dark-border mb-4 md:mb-8 shrink-0"></div>
+                )}
 
                 {/* Turkish Text */}
-                <div className="w-full px-2">
-                  <p 
-                    className="text-base md:text-xl leading-relaxed text-light-text dark:text-dark-text font-medium font-sans w-full break-words whitespace-normal"
-                    dangerouslySetInnerHTML={{ __html: formatTurkishText(ayah.textTurkish) }}
-                  />
-                </div>
+                {(displayMode === 'both' || displayMode === 'turkish') && (
+                  <div className="w-full px-2">
+                    <p 
+                      className="text-base md:text-xl leading-relaxed text-light-text dark:text-dark-text font-medium font-sans w-full break-words whitespace-normal"
+                      dangerouslySetInnerHTML={{ __html: formatTurkishText(ayah.textTurkish) }}
+                    />
+                  </div>
+                )}
 
                 {/* Action Row */}
                 <div className="flex gap-4 mt-8 pt-4 border-t border-light-border/50 dark:border-dark-border/50 w-full justify-center opacity-80 hover:opacity-100 transition-opacity shrink-0">
@@ -620,7 +629,11 @@ const SurahView: React.FC<SurahViewProps> = ({
           <div className="min-h-full flex flex-col items-center justify-center p-3 md:p-8">
             <div 
               ref={cardRef}
-              className="w-full max-w-2xl bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border border-light-border dark:border-dark-border p-5 md:p-10 relative flex flex-col items-center text-center transition-all duration-300 my-2"
+              className={`w-full max-w-2xl bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border-2 p-5 md:p-10 relative flex flex-col items-center text-center transition-all duration-300 my-2 ${
+                currentPlayingIndex === safeIndex && isPlaying
+                  ? 'border-green-500 shadow-lg shadow-green-500/20'
+                  : 'border-light-border dark:border-dark-border'
+              }`}
             >
               {/* Sure Adı ve Ayet Numarası */}
               <div className="w-full mb-4 text-center pt-2">
@@ -630,22 +643,28 @@ const SurahView: React.FC<SurahViewProps> = ({
               </div>
 
               {/* Arabic Text */}
-              <div className="w-full mb-4 md:mb-8 pt-8 md:pt-6 px-2" dir="rtl">
-                <p className="font-arabic text-3xl md:text-5xl leading-[2.0] md:leading-[2.2] text-light-arabic dark:text-dark-arabic text-center w-full break-words whitespace-normal">
-                  {currentAyah.textArabic}
-                </p>
-              </div>
+              {(displayMode === 'both' || displayMode === 'arabic') && (
+                <div className="w-full mb-4 md:mb-8 pt-8 md:pt-6 px-2" dir="rtl">
+                  <p className="font-arabic text-3xl md:text-5xl leading-[2.0] md:leading-[2.2] text-light-arabic dark:text-dark-arabic text-center w-full break-words whitespace-normal">
+                    {currentAyah.textArabic}
+                  </p>
+                </div>
+              )}
 
               {/* Separator */}
-              <div className="w-16 md:w-24 h-0.5 rounded-full bg-light-border dark:bg-dark-border mb-4 md:mb-8 shrink-0"></div>
+              {displayMode === 'both' && (
+                <div className="w-16 md:w-24 h-0.5 rounded-full bg-light-border dark:bg-dark-border mb-4 md:mb-8 shrink-0"></div>
+              )}
 
               {/* Turkish Text */}
-              <div className="w-full px-2">
-                <p 
-                  className="text-base md:text-xl leading-relaxed text-light-text dark:text-dark-text font-medium font-sans w-full break-words whitespace-normal"
-                  dangerouslySetInnerHTML={{ __html: formatTurkishText(currentAyah.textTurkish) }}
-                />
-              </div>
+              {(displayMode === 'both' || displayMode === 'turkish') && (
+                <div className="w-full px-2">
+                  <p 
+                    className="text-base md:text-xl leading-relaxed text-light-text dark:text-dark-text font-medium font-sans w-full break-words whitespace-normal"
+                    dangerouslySetInnerHTML={{ __html: formatTurkishText(currentAyah.textTurkish) }}
+                  />
+                </div>
+              )}
 
               {/* Action Row */}
               <div className="flex gap-4 mt-8 pt-4 border-t border-light-border/50 dark:border-dark-border/50 w-full justify-center opacity-80 hover:opacity-100 transition-opacity shrink-0">

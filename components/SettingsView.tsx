@@ -1,8 +1,9 @@
 import React from 'react';
-import { Sun, Moon, MousePointer, Hand, List, Volume2 } from 'lucide-react';
+import { Sun, Moon, MousePointer, Hand, List, Volume2, BookOpen } from 'lucide-react';
 
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
 type ReciterType = 'husary' | 'alqatami';
+type DisplayMode = 'both' | 'arabic' | 'turkish';
 
 interface SettingsViewProps {
   isDarkMode: boolean;
@@ -11,6 +12,8 @@ interface SettingsViewProps {
   onNavigationModeChange: (mode: NavigationMode) => void;
   reciter: ReciterType;
   onReciterChange: (reciter: ReciterType) => void;
+  displayMode: DisplayMode;
+  onDisplayModeChange: (mode: DisplayMode) => void;
 }
 
 const SettingsView: React.FC<SettingsViewProps> = ({
@@ -19,7 +22,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   navigationMode,
   onNavigationModeChange,
   reciter,
-  onReciterChange
+  onReciterChange,
+  displayMode,
+  onDisplayModeChange
 }) => {
   return (
     <main className="flex flex-col h-full bg-light-bg dark:bg-dark-bg overflow-y-auto">
@@ -149,7 +154,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {/* Okuyucu Seçimi */}
-        <div className="bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border border-light-border dark:border-dark-border p-6">
+        <div className="bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border border-light-border dark:border-dark-border p-6 mb-6">
           <h2 className="text-xl font-semibold text-light-text dark:text-dark-text mb-4 flex items-center gap-2">
             <Volume2 size={24} />
             Okuyucu
@@ -189,6 +194,75 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
               {reciter === 'alqatami' && (
+                <div className="w-5 h-5 rounded-full bg-light-accent dark:bg-dark-accent flex items-center justify-center">
+                  <div className="w-2 h-2 rounded-full bg-white"></div>
+                </div>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Görüntüleme Modu */}
+        <div className="bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border border-light-border dark:border-dark-border p-6">
+          <h2 className="text-xl font-semibold text-light-text dark:text-dark-text mb-4 flex items-center gap-2">
+            <BookOpen size={24} />
+            Görüntüleme
+          </h2>
+          <div className="space-y-3">
+            <button
+              onClick={() => onDisplayModeChange('both')}
+              className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                displayMode === 'both'
+                  ? 'border-light-accent dark:border-dark-accent bg-light-accent/10 dark:bg-dark-accent/10'
+                  : 'border-light-border dark:border-dark-border hover:border-light-accent dark:hover:border-dark-accent'
+              } text-light-text dark:text-dark-text`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-left">
+                  <div className="font-medium">Arapça ve Türkçe Meal</div>
+                </div>
+              </div>
+              {displayMode === 'both' && (
+                <div className="w-5 h-5 rounded-full bg-light-accent dark:bg-dark-accent flex items-center justify-center">
+                  <div className="w-2 h-2 rounded-full bg-white"></div>
+                </div>
+              )}
+            </button>
+
+            <button
+              onClick={() => onDisplayModeChange('arabic')}
+              className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                displayMode === 'arabic'
+                  ? 'border-light-accent dark:border-dark-accent bg-light-accent/10 dark:bg-dark-accent/10'
+                  : 'border-light-border dark:border-dark-border hover:border-light-accent dark:hover:border-dark-accent'
+              } text-light-text dark:text-dark-text`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-left">
+                  <div className="font-medium">Sadece Arapça Ayet</div>
+                </div>
+              </div>
+              {displayMode === 'arabic' && (
+                <div className="w-5 h-5 rounded-full bg-light-accent dark:bg-dark-accent flex items-center justify-center">
+                  <div className="w-2 h-2 rounded-full bg-white"></div>
+                </div>
+              )}
+            </button>
+
+            <button
+              onClick={() => onDisplayModeChange('turkish')}
+              className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                displayMode === 'turkish'
+                  ? 'border-light-accent dark:border-dark-accent bg-light-accent/10 dark:bg-dark-accent/10'
+                  : 'border-light-border dark:border-dark-border hover:border-light-accent dark:hover:border-dark-accent'
+              } text-light-text dark:text-dark-text`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-left">
+                  <div className="font-medium">Sadece Türkçe Meal</div>
+                </div>
+              </div>
+              {displayMode === 'turkish' && (
                 <div className="w-5 h-5 rounded-full bg-light-accent dark:bg-dark-accent flex items-center justify-center">
                   <div className="w-2 h-2 rounded-full bg-white"></div>
                 </div>
