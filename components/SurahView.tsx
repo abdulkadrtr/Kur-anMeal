@@ -225,21 +225,20 @@ const SurahView: React.FC<SurahViewProps> = ({
     // Ayeti değiştir
     onAyahChange(nextIndex);
     
-    // Ekranda göster
-    isAutoScrolling.current = true;
-    
-    setTimeout(() => {
+    // Ekranda göster (sürekli modda)
+    if (navigationMode === 'scroll') {
+      isAutoScrolling.current = true;
       const targetCard = cardRefs.current[nextIndex];
-      if (targetCard && navigationMode === 'scroll') {
+      if (targetCard) {
         targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-      
-      // Sesi çal
       setTimeout(() => {
-        handlePlayAudio(nextIndex, true);
         isAutoScrolling.current = false;
       }, 500);
-    }, 300);
+    }
+    
+    // Hemen sesi çal
+    handlePlayAudio(nextIndex, true);
   };
 
   // Otomatik oynatmayı başlat/durdur
