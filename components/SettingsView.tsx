@@ -1,9 +1,10 @@
 import React from 'react';
-import { Sun, Moon, MousePointer, Hand, List, Volume2, BookOpen } from 'lucide-react';
+import { Sun, Moon, MousePointer, Hand, List, Volume2, BookOpen, Type } from 'lucide-react';
 
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
 type ReciterType = 'husary' | 'alqatami';
 type DisplayMode = 'both' | 'arabic' | 'turkish';
+type FontSize = 'small' | 'medium' | 'large';
 
 interface SettingsViewProps {
   isDarkMode: boolean;
@@ -14,6 +15,10 @@ interface SettingsViewProps {
   onReciterChange: (reciter: ReciterType) => void;
   displayMode: DisplayMode;
   onDisplayModeChange: (mode: DisplayMode) => void;
+  arabicFontSize: FontSize;
+  onArabicFontSizeChange: (size: FontSize) => void;
+  turkishFontSize: FontSize;
+  onTurkishFontSizeChange: (size: FontSize) => void;
 }
 
 const SettingsView: React.FC<SettingsViewProps> = ({
@@ -24,7 +29,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   reciter,
   onReciterChange,
   displayMode,
-  onDisplayModeChange
+  onDisplayModeChange,
+  arabicFontSize,
+  onArabicFontSizeChange,
+  turkishFontSize,
+  onTurkishFontSizeChange
 }) => {
   return (
     <main className="flex flex-col h-full bg-light-bg dark:bg-dark-bg overflow-y-auto">
@@ -203,7 +212,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {/* Görüntüleme Modu */}
-        <div className="bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border border-light-border dark:border-dark-border p-6">
+        <div className="bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border border-light-border dark:border-dark-border p-6 mb-6">
           <h2 className="text-xl font-semibold text-light-text dark:text-dark-text mb-4 flex items-center gap-2">
             <BookOpen size={24} />
             Görüntüleme
@@ -268,6 +277,88 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               )}
             </button>
+          </div>
+        </div>
+
+        {/* Yazı Boyutu Ayarları */}
+        <div className="bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border border-light-border dark:border-dark-border p-6">
+          <h2 className="text-xl font-semibold text-light-text dark:text-dark-text mb-4 flex items-center gap-2">
+            <Type size={24} />
+            Yazı Boyutu
+          </h2>
+          
+          {/* Arapça Yazı Boyutu */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-light-secondary dark:text-dark-secondary mb-3">Arapça Ayet</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onArabicFontSizeChange('small')}
+                className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all text-center ${
+                  arabicFontSize === 'small'
+                    ? 'border-light-accent dark:border-dark-accent bg-light-accent/10 dark:bg-dark-accent/10'
+                    : 'border-light-border dark:border-dark-border hover:border-light-accent dark:hover:border-dark-accent'
+                } text-light-text dark:text-dark-text`}
+              >
+                <span className="text-sm font-medium">Küçük</span>
+              </button>
+              <button
+                onClick={() => onArabicFontSizeChange('medium')}
+                className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all text-center ${
+                  arabicFontSize === 'medium'
+                    ? 'border-light-accent dark:border-dark-accent bg-light-accent/10 dark:bg-dark-accent/10'
+                    : 'border-light-border dark:border-dark-border hover:border-light-accent dark:hover:border-dark-accent'
+                } text-light-text dark:text-dark-text`}
+              >
+                <span className="text-base font-medium">Orta</span>
+              </button>
+              <button
+                onClick={() => onArabicFontSizeChange('large')}
+                className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all text-center ${
+                  arabicFontSize === 'large'
+                    ? 'border-light-accent dark:border-dark-accent bg-light-accent/10 dark:bg-dark-accent/10'
+                    : 'border-light-border dark:border-dark-border hover:border-light-accent dark:hover:border-dark-accent'
+                } text-light-text dark:text-dark-text`}
+              >
+                <span className="text-lg font-medium">Büyük</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Türkçe Yazı Boyutu */}
+          <div>
+            <h3 className="text-sm font-medium text-light-secondary dark:text-dark-secondary mb-3">Türkçe Meal</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onTurkishFontSizeChange('small')}
+                className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all text-center ${
+                  turkishFontSize === 'small'
+                    ? 'border-light-accent dark:border-dark-accent bg-light-accent/10 dark:bg-dark-accent/10'
+                    : 'border-light-border dark:border-dark-border hover:border-light-accent dark:hover:border-dark-accent'
+                } text-light-text dark:text-dark-text`}
+              >
+                <span className="text-sm font-medium">Küçük</span>
+              </button>
+              <button
+                onClick={() => onTurkishFontSizeChange('medium')}
+                className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all text-center ${
+                  turkishFontSize === 'medium'
+                    ? 'border-light-accent dark:border-dark-accent bg-light-accent/10 dark:bg-dark-accent/10'
+                    : 'border-light-border dark:border-dark-border hover:border-light-accent dark:hover:border-dark-accent'
+                } text-light-text dark:text-dark-text`}
+              >
+                <span className="text-base font-medium">Orta</span>
+              </button>
+              <button
+                onClick={() => onTurkishFontSizeChange('large')}
+                className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all text-center ${
+                  turkishFontSize === 'large'
+                    ? 'border-light-accent dark:border-dark-accent bg-light-accent/10 dark:bg-dark-accent/10'
+                    : 'border-light-border dark:border-dark-border hover:border-light-accent dark:hover:border-dark-accent'
+                } text-light-text dark:text-dark-text`}
+              >
+                <span className="text-lg font-medium">Büyük</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

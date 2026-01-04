@@ -6,6 +6,7 @@ import { Copy, ChevronLeft, ChevronRight, Heart, Check, Bookmark, Share2, Play, 
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
 type ReciterType = 'husary' | 'alqatami';
 type DisplayMode = 'both' | 'arabic' | 'turkish';
+type FontSize = 'small' | 'medium' | 'large';
 
 interface SurahViewProps {
   surah: Surah;
@@ -18,6 +19,8 @@ interface SurahViewProps {
   navigationMode: NavigationMode;
   reciter: ReciterType;
   displayMode: DisplayMode;
+  arabicFontSize: FontSize;
+  turkishFontSize: FontSize;
 }
 
 const SurahView: React.FC<SurahViewProps> = ({ 
@@ -30,7 +33,9 @@ const SurahView: React.FC<SurahViewProps> = ({
   onToggleBookmark,
   navigationMode,
   reciter,
-  displayMode
+  displayMode,
+  arabicFontSize,
+  turkishFontSize
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [sharing, setSharing] = React.useState(false);
@@ -470,6 +475,23 @@ const SurahView: React.FC<SurahViewProps> = ({
     );
   };
 
+  // Font size classes
+  const getArabicFontSizeClass = () => {
+    switch (arabicFontSize) {
+      case 'small': return 'text-2xl md:text-3xl leading-[1.8] md:leading-[2.0]';
+      case 'medium': return 'text-3xl md:text-5xl leading-[2.0] md:leading-[2.2]';
+      case 'large': return 'text-4xl md:text-6xl leading-[2.2] md:leading-[2.4]';
+    }
+  };
+
+  const getTurkishFontSizeClass = () => {
+    switch (turkishFontSize) {
+      case 'small': return 'text-sm md:text-base';
+      case 'medium': return 'text-base md:text-xl';
+      case 'large': return 'text-lg md:text-2xl';
+    }
+  };
+
   return (
     <main className="flex flex-col h-full bg-light-bg dark:bg-dark-bg relative overflow-hidden">
       
@@ -512,7 +534,7 @@ const SurahView: React.FC<SurahViewProps> = ({
                 {/* Arabic Text */}
                 {(displayMode === 'both' || displayMode === 'arabic') && (
                   <div className="w-full mb-4 md:mb-8 px-2" dir="rtl">
-                    <p className="font-arabic text-3xl md:text-5xl leading-[2.0] md:leading-[2.2] text-light-arabic dark:text-dark-arabic text-center w-full break-words whitespace-normal">
+                    <p className={`font-arabic ${getArabicFontSizeClass()} text-light-arabic dark:text-dark-arabic text-center w-full break-words whitespace-normal`}>
                       {ayah.textArabic}
                     </p>
                   </div>
@@ -527,7 +549,7 @@ const SurahView: React.FC<SurahViewProps> = ({
                 {(displayMode === 'both' || displayMode === 'turkish') && (
                   <div className="w-full px-2">
                     <p 
-                      className="text-base md:text-xl leading-relaxed text-light-text dark:text-dark-text font-medium font-sans w-full break-words whitespace-normal"
+                      className={`${getTurkishFontSizeClass()} leading-relaxed text-light-text dark:text-dark-text font-medium font-sans w-full break-words whitespace-normal`}
                       dangerouslySetInnerHTML={{ __html: formatTurkishText(ayah.textTurkish) }}
                     />
                   </div>
@@ -645,7 +667,7 @@ const SurahView: React.FC<SurahViewProps> = ({
               {/* Arabic Text */}
               {(displayMode === 'both' || displayMode === 'arabic') && (
                 <div className="w-full mb-4 md:mb-8 pt-8 md:pt-6 px-2" dir="rtl">
-                  <p className="font-arabic text-3xl md:text-5xl leading-[2.0] md:leading-[2.2] text-light-arabic dark:text-dark-arabic text-center w-full break-words whitespace-normal">
+                  <p className={`font-arabic ${getArabicFontSizeClass()} text-light-arabic dark:text-dark-arabic text-center w-full break-words whitespace-normal`}>
                     {currentAyah.textArabic}
                   </p>
                 </div>
@@ -660,7 +682,7 @@ const SurahView: React.FC<SurahViewProps> = ({
               {(displayMode === 'both' || displayMode === 'turkish') && (
                 <div className="w-full px-2">
                   <p 
-                    className="text-base md:text-xl leading-relaxed text-light-text dark:text-dark-text font-medium font-sans w-full break-words whitespace-normal"
+                    className={`${getTurkishFontSizeClass()} leading-relaxed text-light-text dark:text-dark-text font-medium font-sans w-full break-words whitespace-normal`}
                     dangerouslySetInnerHTML={{ __html: formatTurkishText(currentAyah.textTurkish) }}
                   />
                 </div>

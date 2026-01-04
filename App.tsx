@@ -13,6 +13,7 @@ type ViewState = 'home' | 'reader' | 'favorites' | 'bookmarks' | 'settings';
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
 type ReciterType = 'husary' | 'alqatami';
 type DisplayMode = 'both' | 'arabic' | 'turkish';
+type FontSize = 'small' | 'medium' | 'large';
 
 const App: React.FC = () => {
   // --- State Management ---
@@ -31,6 +32,14 @@ const App: React.FC = () => {
   const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
     const saved = localStorage.getItem('displayMode');
     return (saved as DisplayMode) || 'both';
+  });
+  const [arabicFontSize, setArabicFontSize] = useState<FontSize>(() => {
+    const saved = localStorage.getItem('arabicFontSize');
+    return (saved as FontSize) || 'medium';
+  });
+  const [turkishFontSize, setTurkishFontSize] = useState<FontSize>(() => {
+    const saved = localStorage.getItem('turkishFontSize');
+    return (saved as FontSize) || 'medium';
   });
   const [currentView, setCurrentView] = useState<ViewState>('home');
   
@@ -140,6 +149,16 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('displayMode', displayMode);
   }, [displayMode]);
+
+  // Persist Arabic Font Size
+  useEffect(() => {
+    localStorage.setItem('arabicFontSize', arabicFontSize);
+  }, [arabicFontSize]);
+
+  // Persist Turkish Font Size
+  useEffect(() => {
+    localStorage.setItem('turkishFontSize', turkishFontSize);
+  }, [turkishFontSize]);
 
   // Persist Favorites
   useEffect(() => {
@@ -330,6 +349,10 @@ const App: React.FC = () => {
               onReciterChange={setReciter}
               displayMode={displayMode}
               onDisplayModeChange={setDisplayMode}
+              arabicFontSize={arabicFontSize}
+              onArabicFontSizeChange={setArabicFontSize}
+              turkishFontSize={turkishFontSize}
+              onTurkishFontSizeChange={setTurkishFontSize}
             />
           ) : currentSurah ? (
             <SurahView 
@@ -343,6 +366,8 @@ const App: React.FC = () => {
               navigationMode={navigationMode}
               reciter={reciter}
               displayMode={displayMode}
+              arabicFontSize={arabicFontSize}
+              turkishFontSize={turkishFontSize}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center text-light-secondary dark:text-dark-secondary">
