@@ -43,7 +43,8 @@ const SurahView: React.FC<SurahViewProps> = ({
   const [currentPlayingIndex, setCurrentPlayingIndex] = React.useState<number | null>(null);
   const [isAutoPlaying, setIsAutoPlaying] = React.useState(false);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
-  const preloadedAudioRef = React.useRef<HTMLAudioElement | null>(null);
+  const nextAudioRef = React.useRef<HTMLAudioElement | null>(null);
+  const isAutoPlayingRef = React.useRef<boolean>(false);
   const cardRef = React.useRef<HTMLDivElement>(null);
   const cardRefs = React.useRef<(HTMLDivElement | null)[]>([]);
   const touchStartX = React.useRef<number>(0);
@@ -155,32 +156,58 @@ const SurahView: React.FC<SurahViewProps> = ({
     return [parseInt(numStr)];
   };
 
-  // Sonraki ayeti önceden yükle
-  const preloadNextAyah = (nextIndex: number) => {
-    if (nextIndex >= surah.ayahs.length) return;
-    
-    const nextAyah = surah.ayahs[nextIndex];
-    const ayahNumbers = getAyahNumbers(nextAyah.numberInSurah);
-    const audioUrl = getAudioUrl(surah.id, ayahNumbers[0]);
-    
-    preloadedAudioRef.current = new Audio(audioUrl);
-    preloadedAudioRef.current.preload = 'auto';
+  // Tek bir ayet için ses çal (basit versiyon)
+  const playAyahAudio = (ayahIndex: number, onComplete: () => void) => {
+    const ayah = surah.ayahs[ayahIndex];
+    const ayahNumbers = getAyahNumbers(ayah.numberInSurah);
+    let currentIdx = 0;
+
+    const playNext = () => {
+      if (currentIdx >= ayahNumbers.length) {
+        onComplete();
+        return;
+      }
+
+      const audioUrl = getAudioUrl(surah.id, ayahNumbers[currentIdx]);
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        currentIdx++;
+        playNext();
+      };
+
+      audio.onerror = () => {
+        console.error('Ses yükleme hatası');
+        setIsPlaying(false);
+        setCurrentPlayingIndex(null);
+        setIsAutoPlaying(false);
+        isAutoPlayingRef.current = false;
+      };
+
+      audio.play().catch((err) => {
+        console.error('Ses çalma hatası:', err);
+        setIsPlaying(false);
+        setCurrentPlayingIndex(null);
+        setIsAutoPlaying(false);
+        isAutoPlayingRef.current = false;
+      });
+    };
+
+    playNext();
   };
 
-  // Ses çalma/durdurma
-  const handlePlayAudio = (index: number, isAuto: boolean = false) => {
-    const ayah = surah.ayahs[index];
-    const ayahNumbers = getAyahNumbers(ayah.numberInSurah);
-
-    // Aynı ayete tekrar basılırsa durdur (sadece manuel çalmalarda)
-    if (!isAuto && currentPlayingIndex === index && isPlaying) {
+  // Ses çalma/durdurma (manuel tek ayet)
+  const handlePlayAudio = (index: number) => {
+    // Aynı ayete tekrar basılırsa durdur
+    if (currentPlayingIndex === index && isPlaying) {
       audioRef.current?.pause();
       setIsPlaying(false);
       setCurrentPlayingIndex(null);
       return;
     }
 
-    // Yeni ses çal
+    // Önceki sesi durdur
     if (audioRef.current) {
       audioRef.current.pause();
     }
@@ -188,84 +215,39 @@ const SurahView: React.FC<SurahViewProps> = ({
     setCurrentPlayingIndex(index);
     setIsPlaying(true);
 
-    // Sonraki ayeti önceden yükle
-    if (isAuto && index < surah.ayahs.length - 1) {
-      preloadNextAyah(index + 1);
-    }
-
-    // Sırayla tüm ayetleri çal
-    let currentAyahIdx = 0;
-
-    const playNextInSequence = () => {
-      if (currentAyahIdx >= ayahNumbers.length) {
-        // Tüm ayetler bitti
-        setIsPlaying(false);
-        setCurrentPlayingIndex(null);
-        
-        // Otomatik oynatma aktifse ve son ayet değilse bir sonraki ayete geç
-        if (isAuto) {
-          if (index < surah.ayahs.length - 1) {
-            playNextAyah(index + 1);
-          } else {
-            // Son ayet, otomatik oynatmayı durdur
-            setIsAutoPlaying(false);
-          }
-        }
-        return;
-      }
-
-      // Preloaded audio varsa ve ilk ayet ise onu kullan
-      let audio: HTMLAudioElement;
-      if (currentAyahIdx === 0 && preloadedAudioRef.current && preloadedAudioRef.current.src.includes(String(ayahNumbers[0]).padStart(3, '0'))) {
-        audio = preloadedAudioRef.current;
-        preloadedAudioRef.current = null;
-      } else {
-        const audioUrl = getAudioUrl(surah.id, ayahNumbers[currentAyahIdx]);
-        audio = new Audio(audioUrl);
-      }
-      
-      audioRef.current = audio;
-
-      audio.play().catch((err) => {
-        console.error('Ses çalma hatası:', err);
-        setIsPlaying(false);
-        setCurrentPlayingIndex(null);
-        if (isAuto) setIsAutoPlaying(false);
-      });
-
-      audio.onended = () => {
-        currentAyahIdx++;
-        playNextInSequence();
-      };
-
-      audio.onerror = () => {
-        console.error('Ses yükleme hatası');
-        setIsPlaying(false);
-        setCurrentPlayingIndex(null);
-        if (isAuto) setIsAutoPlaying(false);
-      };
-    };
-
-    playNextInSequence();
-  };
-
-  // Sonraki ayeti çal ve ekranda göster
-  const playNextAyah = (nextIndex: number) => {
-    // Son ayeti geçtiyse dur
-    if (nextIndex >= surah.ayahs.length) {
+    playAyahAudio(index, () => {
       setIsPlaying(false);
       setCurrentPlayingIndex(null);
-      setIsAutoPlaying(false);
+    });
+  };
+
+  // Otomatik oynatma için recursive fonksiyon
+  const playAutoSequence = (startIndex: number) => {
+    // Durdurulmuşsa çık
+    if (!isAutoPlayingRef.current) {
+      setIsPlaying(false);
+      setCurrentPlayingIndex(null);
       return;
     }
 
-    // Ayeti değiştir
-    onAyahChange(nextIndex);
-    
-    // Ekranda göster (sürekli modda)
+    // Sure bittiyse dur
+    if (startIndex >= surah.ayahs.length) {
+      setIsPlaying(false);
+      setCurrentPlayingIndex(null);
+      setIsAutoPlaying(false);
+      isAutoPlayingRef.current = false;
+      return;
+    }
+
+    // Ayeti değiştir ve ekranda göster
+    onAyahChange(startIndex);
+    setCurrentPlayingIndex(startIndex);
+    setIsPlaying(true);
+
+    // Sürekli modda scroll yap
     if (navigationMode === 'scroll') {
       isAutoScrolling.current = true;
-      const targetCard = cardRefs.current[nextIndex];
+      const targetCard = cardRefs.current[startIndex];
       if (targetCard) {
         targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -273,59 +255,53 @@ const SurahView: React.FC<SurahViewProps> = ({
         isAutoScrolling.current = false;
       }, 500);
     }
-    
-    // Preloaded audio varsa hemen çal
-    const nextAyah = surah.ayahs[nextIndex];
-    const ayahNumbers = getAyahNumbers(nextAyah.numberInSurah);
-    
-    setCurrentPlayingIndex(nextIndex);
-    setIsPlaying(true);
-    
-    // Bir sonraki ayeti önceden yükle
-    if (nextIndex < surah.ayahs.length - 1) {
-      preloadNextAyah(nextIndex + 1);
-    }
 
-    let currentAyahIdx = 0;
+    const ayah = surah.ayahs[startIndex];
+    const ayahNumbers = getAyahNumbers(ayah.numberInSurah);
+    let currentIdx = 0;
 
-    const playNextInSequence = () => {
-      if (currentAyahIdx >= ayahNumbers.length) {
-        setIsPlaying(false);
-        setCurrentPlayingIndex(null);
-        
-        // Son ayet değilse devam et
-        if (nextIndex < surah.ayahs.length - 1) {
-          playNextAyah(nextIndex + 1);
+    // Sonraki ayetin ilk sesini önceden yükle
+    const preloadNext = () => {
+      if (startIndex + 1 < surah.ayahs.length) {
+        const nextAyah = surah.ayahs[startIndex + 1];
+        const nextAyahNumbers = getAyahNumbers(nextAyah.numberInSurah);
+        const nextUrl = getAudioUrl(surah.id, nextAyahNumbers[0]);
+        nextAudioRef.current = new Audio(nextUrl);
+      }
+    };
+
+    const playNext = () => {
+      if (currentIdx >= ayahNumbers.length) {
+        // Bu ayet bitti, sonrakine geç
+        if (isAutoPlayingRef.current) {
+          playAutoSequence(startIndex + 1);
         } else {
-          // Son ayet, otomatik oynatmayı durdur
-          setIsAutoPlaying(false);
+          setIsPlaying(false);
+          setCurrentPlayingIndex(null);
         }
         return;
       }
 
       let audio: HTMLAudioElement;
       
-      // Preloaded audio varsa kullan
-      if (currentAyahIdx === 0 && preloadedAudioRef.current) {
-        audio = preloadedAudioRef.current;
-        preloadedAudioRef.current = null;
+      // Önceden yüklenmiş ses varsa kullan
+      if (currentIdx === 0 && nextAudioRef.current) {
+        audio = nextAudioRef.current;
+        nextAudioRef.current = null;
       } else {
-        const audioUrl = getAudioUrl(surah.id, ayahNumbers[currentAyahIdx]);
-        audio = new Audio(audioUrl);
+        audio = new Audio(getAudioUrl(surah.id, ayahNumbers[currentIdx]));
       }
       
       audioRef.current = audio;
 
-      audio.play().catch((err) => {
-        console.error('Ses çalma hatası:', err);
-        setIsPlaying(false);
-        setCurrentPlayingIndex(null);
-        setIsAutoPlaying(false);
-      });
+      // Son parçayı çalarken sonraki ayeti yükle
+      if (currentIdx === ayahNumbers.length - 1) {
+        preloadNext();
+      }
 
       audio.onended = () => {
-        currentAyahIdx++;
-        playNextInSequence();
+        currentIdx++;
+        playNext();
       };
 
       audio.onerror = () => {
@@ -333,16 +309,26 @@ const SurahView: React.FC<SurahViewProps> = ({
         setIsPlaying(false);
         setCurrentPlayingIndex(null);
         setIsAutoPlaying(false);
+        isAutoPlayingRef.current = false;
       };
+
+      audio.play().catch((err) => {
+        console.error('Ses çalma hatası:', err);
+        setIsPlaying(false);
+        setCurrentPlayingIndex(null);
+        setIsAutoPlaying(false);
+        isAutoPlayingRef.current = false;
+      });
     };
 
-    playNextInSequence();
+    playNext();
   };
 
   // Otomatik oynatmayı başlat/durdur
   const toggleAutoPlay = () => {
     if (isAutoPlaying) {
       // Durdur
+      isAutoPlayingRef.current = false;
       setIsAutoPlaying(false);
       if (audioRef.current) {
         audioRef.current.pause();
@@ -351,8 +337,9 @@ const SurahView: React.FC<SurahViewProps> = ({
       setCurrentPlayingIndex(null);
     } else {
       // Başlat
+      isAutoPlayingRef.current = true;
       setIsAutoPlaying(true);
-      handlePlayAudio(safeIndex, true);
+      playAutoSequence(safeIndex);
     }
   };
 
