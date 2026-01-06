@@ -202,11 +202,14 @@ const SurahView: React.FC<SurahViewProps> = ({
         setIsPlaying(false);
         setCurrentPlayingIndex(null);
         
-        // Otomatik oynatma aktifse bir sonraki ayete geç
-        if (isAuto && index < surah.ayahs.length - 1) {
-          playNextAyah(index + 1);
-        } else if (isAuto && index === surah.ayahs.length - 1) {
-          setIsAutoPlaying(false);
+        // Otomatik oynatma aktifse ve son ayet değilse bir sonraki ayete geç
+        if (isAuto) {
+          if (index < surah.ayahs.length - 1) {
+            playNextAyah(index + 1);
+          } else {
+            // Son ayet, otomatik oynatmayı durdur
+            setIsAutoPlaying(false);
+          }
         }
         return;
       }
@@ -248,6 +251,14 @@ const SurahView: React.FC<SurahViewProps> = ({
 
   // Sonraki ayeti çal ve ekranda göster
   const playNextAyah = (nextIndex: number) => {
+    // Son ayeti geçtiyse dur
+    if (nextIndex >= surah.ayahs.length) {
+      setIsPlaying(false);
+      setCurrentPlayingIndex(null);
+      setIsAutoPlaying(false);
+      return;
+    }
+
     // Ayeti değiştir
     onAyahChange(nextIndex);
     
@@ -282,9 +293,11 @@ const SurahView: React.FC<SurahViewProps> = ({
         setIsPlaying(false);
         setCurrentPlayingIndex(null);
         
+        // Son ayet değilse devam et
         if (nextIndex < surah.ayahs.length - 1) {
           playNextAyah(nextIndex + 1);
         } else {
+          // Son ayet, otomatik oynatmayı durdur
           setIsAutoPlaying(false);
         }
         return;
