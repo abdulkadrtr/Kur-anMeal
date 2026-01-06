@@ -63,6 +63,21 @@ const SurahView: React.FC<SurahViewProps> = ({
     cardRefs.current = cardRefs.current.slice(0, surah.ayahs.length);
   }, [surah.ayahs.length]);
 
+  // Sure değiştiğinde preload edilen sesi temizle
+  React.useEffect(() => {
+    if (nextAudioRef.current) {
+      nextAudioRef.current = null;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsPlaying(false);
+    setCurrentPlayingIndex(null);
+    setIsAutoPlaying(false);
+    isAutoPlayingRef.current = false;
+  }, [surah.id]);
+
   // Sürekli modda ayet değiştiğinde scroll yap (sadece programatik değişikliklerde)
   React.useEffect(() => {
     if (navigationMode !== 'scroll') return;
