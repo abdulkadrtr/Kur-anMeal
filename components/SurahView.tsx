@@ -43,6 +43,7 @@ const SurahView: React.FC<SurahViewProps> = ({
   const [currentPlayingIndex, setCurrentPlayingIndex] = React.useState<number | null>(null);
   const [isAutoPlaying, setIsAutoPlaying] = React.useState(false);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const preloadedAudioRef = React.useRef<HTMLAudioElement | null>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
   const cardRefs = React.useRef<(HTMLDivElement | null)[]>([]);
   const touchStartX = React.useRef<number>(0);
@@ -154,6 +155,18 @@ const SurahView: React.FC<SurahViewProps> = ({
     return [parseInt(numStr)];
   };
 
+  // Sonraki ayeti önceden yükle
+  const preloadNextAyah = (nextIndex: number) => {
+    if (nextIndex >= surah.ayahs.length) return;
+    
+    const nextAyah = surah.ayahs[nextIndex];
+    const ayahNumbers = getAyahNumbers(nextAyah.numberInSurah);
+    const audioUrl = getAudioUrl(surah.id, ayahNumbers[0]);
+    
+    preloadedAudioRef.current = new Audio(audioUrl);
+    preloadedAudioRef.current.preload = 'auto';
+  };
+
   // Ses çalma/durdurma
   const handlePlayAudio = (index: number, isAuto: boolean = false) => {
     const ayah = surah.ayahs[index];
@@ -175,6 +188,11 @@ const SurahView: React.FC<SurahViewProps> = ({
     setCurrentPlayingIndex(index);
     setIsPlaying(true);
 
+    // Sonraki ayeti önceden yükle
+    if (isAuto && index < surah.ayahs.length - 1) {
+      preloadNextAyah(index + 1);
+    }
+
     // Sırayla tüm ayetleri çal
     let currentAyahIdx = 0;
 
@@ -193,8 +211,16 @@ const SurahView: React.FC<SurahViewProps> = ({
         return;
       }
 
-      const audioUrl = getAudioUrl(surah.id, ayahNumbers[currentAyahIdx]);
-      const audio = new Audio(audioUrl);
+      // Preloaded audio varsa ve ilk ayet ise onu kullan
+      let audio: HTMLAudioElement;
+      if (currentAyahIdx === 0 && preloadedAudioRef.current && preloadedAudioRef.current.src.includes(String(ayahNumbers[0]).padStart(3, '0'))) {
+        audio = preloadedAudioRef.current;
+        preloadedAudioRef.current = null;
+      } else {
+        const audioUrl = getAudioUrl(surah.id, ayahNumbers[currentAyahIdx]);
+        audio = new Audio(audioUrl);
+      }
+      
       audioRef.current = audio;
 
       audio.play().catch((err) => {
@@ -237,8 +263,67 @@ const SurahView: React.FC<SurahViewProps> = ({
       }, 500);
     }
     
-    // Hemen sesi çal
-    handlePlayAudio(nextIndex, true);
+    // Preloaded audio varsa hemen çal
+    const nextAyah = surah.ayahs[nextIndex];
+    const ayahNumbers = getAyahNumbers(nextAyah.numberInSurah);
+    
+    setCurrentPlayingIndex(nextIndex);
+    setIsPlaying(true);
+    
+    // Bir sonraki ayeti önceden yükle
+    if (nextIndex < surah.ayahs.length - 1) {
+      preloadNextAyah(nextIndex + 1);
+    }
+
+    let currentAyahIdx = 0;
+
+    const playNextInSequence = () => {
+      if (currentAyahIdx >= ayahNumbers.length) {
+        setIsPlaying(false);
+        setCurrentPlayingIndex(null);
+        
+        if (nextIndex < surah.ayahs.length - 1) {
+          playNextAyah(nextIndex + 1);
+        } else {
+          setIsAutoPlaying(false);
+        }
+        return;
+      }
+
+      let audio: HTMLAudioElement;
+      
+      // Preloaded audio varsa kullan
+      if (currentAyahIdx === 0 && preloadedAudioRef.current) {
+        audio = preloadedAudioRef.current;
+        preloadedAudioRef.current = null;
+      } else {
+        const audioUrl = getAudioUrl(surah.id, ayahNumbers[currentAyahIdx]);
+        audio = new Audio(audioUrl);
+      }
+      
+      audioRef.current = audio;
+
+      audio.play().catch((err) => {
+        console.error('Ses çalma hatası:', err);
+        setIsPlaying(false);
+        setCurrentPlayingIndex(null);
+        setIsAutoPlaying(false);
+      });
+
+      audio.onended = () => {
+        currentAyahIdx++;
+        playNextInSequence();
+      };
+
+      audio.onerror = () => {
+        console.error('Ses yükleme hatası');
+        setIsPlaying(false);
+        setCurrentPlayingIndex(null);
+        setIsAutoPlaying(false);
+      };
+    };
+
+    playNextInSequence();
   };
 
   // Otomatik oynatmayı başlat/durdur
