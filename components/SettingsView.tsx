@@ -2,7 +2,7 @@ import React from 'react';
 import { Sun, Moon, MousePointer, Hand, List, Volume2, BookOpen, Type } from 'lucide-react';
 
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
-type ReciterType = 'husary' | 'alqatami';
+type ReciterType = 'husary' | 'alqatami' | 'dosari';
 type DisplayMode = 'both' | 'arabic' | 'turkish';
 type FontSize = 'small' | 'medium' | 'large';
 
@@ -203,6 +203,26 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
               {reciter === 'alqatami' && (
+                <div className="w-5 h-5 rounded-full bg-light-accent dark:bg-dark-accent flex items-center justify-center">
+                  <div className="w-2 h-2 rounded-full bg-white"></div>
+                </div>
+              )}
+            </button>
+
+            <button
+              onClick={() => onReciterChange('dosari')}
+              className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                reciter === 'dosari'
+                  ? 'border-light-accent dark:border-dark-accent bg-light-accent/10 dark:bg-dark-accent/10'
+                  : 'border-light-border dark:border-dark-border hover:border-light-accent dark:hover:border-dark-accent'
+              } text-light-text dark:text-dark-text`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-left">
+                  <div className="font-medium">Yasser Al-Dosari</div>
+                </div>
+              </div>
+              {reciter === 'dosari' && (
                 <div className="w-5 h-5 rounded-full bg-light-accent dark:bg-dark-accent flex items-center justify-center">
                   <div className="w-2 h-2 rounded-full bg-white"></div>
                 </div>

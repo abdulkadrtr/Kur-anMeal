@@ -4,7 +4,7 @@ import { BISMILLAH } from '../constants';
 import { Copy, ChevronLeft, ChevronRight, Heart, Check, Bookmark, Share2, Play, Pause, PlayCircle, StopCircle } from 'lucide-react';
 
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
-type ReciterType = 'husary' | 'alqatami';
+type ReciterType = 'husary' | 'alqatami' | 'dosari';
 type DisplayMode = 'both' | 'arabic' | 'turkish';
 type FontSize = 'small' | 'medium' | 'large';
 
@@ -152,8 +152,10 @@ const SurahView: React.FC<SurahViewProps> = ({
     
     if (reciter === 'husary') {
       return `https://everyayah.com/data/Husary_128kbps/${surahPadded}${ayahPadded}.mp3`;
-    } else {
+    } else if (reciter === 'alqatami') {
       return `https://everyayah.com/data/Nasser_Alqatami_128kbps/${surahPadded}${ayahPadded}.mp3`;
+    } else {
+      return `https://everyayah.com/data/Yasser_Ad-Dussary_128kbps/${surahPadded}${ayahPadded}.mp3`;
     }
   };
 

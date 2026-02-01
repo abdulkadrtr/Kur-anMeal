@@ -11,7 +11,7 @@ import { Surah } from './types';
 
 type ViewState = 'home' | 'reader' | 'favorites' | 'bookmarks' | 'settings';
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
-type ReciterType = 'husary' | 'alqatami';
+type ReciterType = 'husary' | 'alqatami' | 'dosari';
 type DisplayMode = 'both' | 'arabic' | 'turkish';
 type FontSize = 'small' | 'medium' | 'large';
 
