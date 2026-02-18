@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Menu, Heart, Shuffle, Bookmark, Settings } from 'lucide-react';
+import { Search, Menu, Heart, Shuffle, Bookmark, Settings, BookCheck } from 'lucide-react';
 
 interface HeaderProps {
   searchQuery: string;
@@ -10,6 +10,7 @@ interface HeaderProps {
   onBookmarksClick?: () => void;
   onRandomClick?: () => void;
   onSettingsClick?: () => void;
+  onHatimClick?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -20,7 +21,8 @@ const Header: React.FC<HeaderProps> = ({
   onFavoritesClick,
   onBookmarksClick,
   onRandomClick,
-  onSettingsClick
+  onSettingsClick,
+  onHatimClick
 }) => {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between px-4 md:px-6 py-4 transition-colors duration-300 border-b shadow-sm bg-light-card dark:bg-dark-card border-light-border dark:border-dark-border h-16">
@@ -95,6 +97,15 @@ const Header: React.FC<HeaderProps> = ({
           aria-label="Favorilerim"
         >
           <Heart size={20} className="hover:text-red-500 transition-colors" />
+        </button>
+
+        <button
+          onClick={onHatimClick}
+          className="p-2 rounded-full text-light-secondary dark:text-dark-secondary hover:bg-light-bg dark:hover:bg-dark-bg transition-colors duration-300"
+          title="Hatim Takibi"
+          aria-label="Hatim Takibi"
+        >
+          <BookCheck size={20} className="hover:text-green-500 transition-colors" />
         </button>
         
         <button

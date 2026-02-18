@@ -45,6 +45,14 @@ const SurahView: React.FC<SurahViewProps> = ({
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const nextAudioRef = React.useRef<HTMLAudioElement | null>(null);
   const isAutoPlayingRef = React.useRef<boolean>(false);
+  const audioBufferRef = React.useRef<Map<string, HTMLAudioElement>>(new Map());
+  const audioContextRef = React.useRef<AudioContext | null>(null);
+  const decodedBuffersRef = React.useRef<Map<string, AudioBuffer>>(new Map());
+  const currentSourceRef = React.useRef<AudioBufferSourceNode | null>(null);
+  const nextSourceRef = React.useRef<AudioBufferSourceNode | null>(null);
+  const scheduledTimeRef = React.useRef<number>(0);
+  const allScheduledSourcesRef = React.useRef<AudioBufferSourceNode[]>([]);
+  const scheduledTimeoutsRef = React.useRef<NodeJS.Timeout[]>([]);
   const cardRef = React.useRef<HTMLDivElement>(null);
   const cardRefs = React.useRef<(HTMLDivElement | null)[]>([]);
   const touchStartX = React.useRef<number>(0);
@@ -65,6 +73,20 @@ const SurahView: React.FC<SurahViewProps> = ({
 
   // Sure değiştiğinde preload edilen sesi temizle
   React.useEffect(() => {
+    // Tüm scheduled sesleri durdur
+    allScheduledSourcesRef.current.forEach(source => {
+      try {
+        source.stop();
+      } catch (e) {
+        // Zaten durmuş olabilir
+      }
+    });
+    allScheduledSourcesRef.current = [];
+    
+    // Tüm timeout'ları temizle
+    scheduledTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+    scheduledTimeoutsRef.current = [];
+    
     if (nextAudioRef.current) {
       nextAudioRef.current = null;
     }
@@ -72,11 +94,27 @@ const SurahView: React.FC<SurahViewProps> = ({
       audioRef.current.pause();
       audioRef.current = null;
     }
+    // Buffer'ı temizle
+    audioBufferRef.current.clear();
+    decodedBuffersRef.current.clear();
+    if (currentSourceRef.current) {
+      try {
+        currentSourceRef.current.stop();
+      } catch (e) {}
+      currentSourceRef.current = null;
+    }
     setIsPlaying(false);
     setCurrentPlayingIndex(null);
     setIsAutoPlaying(false);
     isAutoPlayingRef.current = false;
   }, [surah.id]);
+
+  // AudioContext'i başlat
+  React.useEffect(() => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+  }, []);
 
   // Sürekli modda ayet değiştiğinde scroll yap (sadece programatik değişikliklerde)
   React.useEffect(() => {
@@ -238,8 +276,73 @@ const SurahView: React.FC<SurahViewProps> = ({
     });
   };
 
-  // Otomatik oynatma için recursive fonksiyon
-  const playAutoSequence = (startIndex: number) => {
+  // Ses dosyasını fetch edip decode et (Web Audio API)
+  const fetchAndDecodeAudio = async (surahNumber: number, ayahNumber: number): Promise<AudioBuffer | null> => {
+    const url = getAudioUrl(surahNumber, ayahNumber);
+    
+    // Zaten decode edilmişse onu döndür
+    if (decodedBuffersRef.current.has(url)) {
+      return decodedBuffersRef.current.get(url)!;
+    }
+    
+    try {
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await audioContextRef.current!.decodeAudioData(arrayBuffer);
+      decodedBuffersRef.current.set(url, audioBuffer);
+      return audioBuffer;
+    } catch (error) {
+      console.error('Ses decode hatası:', error);
+      return null;
+    }
+  };
+
+  // Birden fazla ayeti önceden decode et
+  const preloadAndDecodeMultiple = async (startIndex: number, count: number = 3) => {
+    const promises: Promise<AudioBuffer | null>[] = [];
+    
+    for (let i = 0; i < count; i++) {
+      const index = startIndex + i;
+      if (index >= surah.ayahs.length) break;
+      
+      const ayah = surah.ayahs[index];
+      const ayahNumbers = getAyahNumbers(ayah.numberInSurah);
+      
+      // Her ayet parçasını decode et
+      ayahNumbers.forEach(num => {
+        promises.push(fetchAndDecodeAudio(surah.id, num));
+      });
+    }
+    
+    // Tüm sesleri paralel yükle
+    await Promise.all(promises);
+  };
+
+  // Web Audio API ile seamless çalma - TAMAMEN KESİNTİSİZ
+  const playAudioBufferSeamless = (
+    audioBuffer: AudioBuffer, 
+    startTime: number
+  ): { source: AudioBufferSourceNode; endTime: number } => {
+    if (!audioContextRef.current) return null as any;
+    
+    const source = audioContextRef.current.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContextRef.current.destination);
+    
+    // Tam zamanında başlat (önceki ses bittiği anda)
+    source.start(startTime);
+    
+    // Scheduled sources listesine ekle (durdurma için)
+    allScheduledSourcesRef.current.push(source);
+    
+    // Bu sesin biteceği zamanı hesapla
+    const endTime = startTime + audioBuffer.duration;
+    
+    return { source, endTime };
+  };
+
+  // Otomatik oynatma için recursive fonksiyon - TAMAMEN SEAMLESS + SENKRON
+  const playAutoSequenceSeamless = async (startIndex: number, currentTime: number = 0) => {
     // Durdurulmuşsa çık
     if (!isAutoPlayingRef.current) {
       setIsPlaying(false);
@@ -256,7 +359,10 @@ const SurahView: React.FC<SurahViewProps> = ({
       return;
     }
 
-    // Ayeti değiştir ve ekranda göster
+    // Sonraki 5 ayeti önceden decode et (arka planda)
+    preloadAndDecodeMultiple(startIndex + 1, 5);
+
+    // Ayeti değiştir ve ekranda göster - HEMEN
     onAyahChange(startIndex);
     setCurrentPlayingIndex(startIndex);
     setIsPlaying(true);
@@ -275,98 +381,122 @@ const SurahView: React.FC<SurahViewProps> = ({
 
     const ayah = surah.ayahs[startIndex];
     const ayahNumbers = getAyahNumbers(ayah.numberInSurah);
-    let currentIdx = 0;
-
-    // Sonraki ayetin ilk sesini önceden yükle
-    const preloadNext = () => {
-      if (startIndex + 1 < surah.ayahs.length) {
-        const nextAyah = surah.ayahs[startIndex + 1];
-        const nextAyahNumbers = getAyahNumbers(nextAyah.numberInSurah);
-        const nextUrl = getAudioUrl(surah.id, nextAyahNumbers[0]);
-        nextAudioRef.current = new Audio(nextUrl);
-      }
-    };
-
-    const playNext = () => {
-      if (currentIdx >= ayahNumbers.length) {
-        // Bu ayet bitti, sonrakine geç
-        if (isAutoPlayingRef.current) {
-          playAutoSequence(startIndex + 1);
-        } else {
-          setIsPlaying(false);
-          setCurrentPlayingIndex(null);
-        }
+    
+    // Tüm ayet parçalarını decode et
+    const audioBuffers: AudioBuffer[] = [];
+    for (const num of ayahNumbers) {
+      const buffer = await fetchAndDecodeAudio(surah.id, num);
+      if (!buffer) {
+        console.error('Ses yüklenemedi');
+        setIsPlaying(false);
+        setCurrentPlayingIndex(null);
+        setIsAutoPlaying(false);
+        isAutoPlayingRef.current = false;
         return;
       }
+      audioBuffers.push(buffer);
+    }
 
-      let audio: HTMLAudioElement;
-      
-      // Önceden yüklenmiş ses varsa kullan
-      if (currentIdx === 0 && nextAudioRef.current) {
-        audio = nextAudioRef.current;
-        nextAudioRef.current = null;
-      } else {
-        audio = new Audio(getAudioUrl(surah.id, ayahNumbers[currentIdx]));
+    // Başlangıç zamanını belirle
+    let scheduleTime = currentTime === 0 
+      ? audioContextRef.current!.currentTime 
+      : currentTime;
+
+    // Tüm parçaları PEŞPEŞE schedule et (hiç boşluk bırakmadan)
+    for (const buffer of audioBuffers) {
+      const { source, endTime } = playAudioBufferSeamless(buffer, scheduleTime);
+      scheduleTime = endTime; // Bir sonraki ses tam bu sesin bittiği anda başlasın
+    }
+
+    // Bu ayetin toplam süresi
+    const totalDuration = audioBuffers.reduce((sum, buf) => sum + buf.duration, 0);
+    
+    // Ayetin BİTMESİNDEN HEMEN ÖNCE sonraki ayete geç (senkronizasyon için)
+    // Ses bitmeden 50ms önce UI'ı güncelle
+    const uiUpdateDelay = Math.max(0, (totalDuration - 0.05) * 1000);
+    
+    const timeout = setTimeout(() => {
+      if (isAutoPlayingRef.current) {
+        // Sonraki ayeti başlat (ses zaten schedule edilmiş olacak)
+        playAutoSequenceSeamless(startIndex + 1, scheduleTime);
       }
-      
-      audioRef.current = audio;
-
-      // Son parçayı çalarken sonraki ayeti yükle
-      if (currentIdx === ayahNumbers.length - 1) {
-        preloadNext();
-      }
-
-      audio.onended = () => {
-        currentIdx++;
-        playNext();
-      };
-
-      audio.onerror = () => {
-        console.error('Ses yükleme hatası');
-        setIsPlaying(false);
-        setCurrentPlayingIndex(null);
-        setIsAutoPlaying(false);
-        isAutoPlayingRef.current = false;
-      };
-
-      audio.play().catch((err) => {
-        console.error('Ses çalma hatası:', err);
-        setIsPlaying(false);
-        setCurrentPlayingIndex(null);
-        setIsAutoPlaying(false);
-        isAutoPlayingRef.current = false;
-      });
-    };
-
-    playNext();
+    }, uiUpdateDelay);
+    
+    scheduledTimeoutsRef.current.push(timeout);
   };
 
   // Otomatik oynatmayı başlat/durdur
-  const toggleAutoPlay = () => {
+  const toggleAutoPlay = async () => {
     if (isAutoPlaying) {
-      // Durdur
+      // DURDUR - Tüm scheduled sesleri ve timeout'ları temizle
       isAutoPlayingRef.current = false;
       setIsAutoPlaying(false);
+      
+      // Tüm scheduled audio source'ları durdur
+      allScheduledSourcesRef.current.forEach(source => {
+        try {
+          source.stop();
+        } catch (e) {
+          // Zaten durmuş olabilir
+        }
+      });
+      allScheduledSourcesRef.current = [];
+      
+      // Tüm timeout'ları temizle
+      scheduledTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      scheduledTimeoutsRef.current = [];
+      
       if (audioRef.current) {
         audioRef.current.pause();
+      }
+      if (currentSourceRef.current) {
+        try {
+          currentSourceRef.current.stop();
+        } catch (e) {}
+        currentSourceRef.current = null;
       }
       setIsPlaying(false);
       setCurrentPlayingIndex(null);
     } else {
-      // Başlat
+      // Başlat - İlk olarak sonraki ayetleri decode et
       isAutoPlayingRef.current = true;
       setIsAutoPlaying(true);
-      playAutoSequence(safeIndex);
+      
+      // İlk 6 ayeti decode et (daha fazla buffer)
+      await preloadAndDecodeMultiple(safeIndex, 6);
+      
+      // Seamless başlat
+      playAutoSequenceSeamless(safeIndex, 0);
     }
   };
 
-  // Component unmount olduğunda sesi durdur
+  // Component unmount olduğunda sesi durdur ve buffer'ı temizle
   React.useEffect(() => {
     return () => {
+      // Tüm scheduled sesleri durdur
+      allScheduledSourcesRef.current.forEach(source => {
+        try {
+          source.stop();
+        } catch (e) {}
+      });
+      allScheduledSourcesRef.current = [];
+      
+      // Tüm timeout'ları temizle
+      scheduledTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      scheduledTimeoutsRef.current = [];
+      
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
+      if (currentSourceRef.current) {
+        try {
+          currentSourceRef.current.stop();
+        } catch (e) {}
+        currentSourceRef.current = null;
+      }
+      audioBufferRef.current.clear();
+      decodedBuffersRef.current.clear();
       setIsAutoPlaying(false);
     };
   }, []);

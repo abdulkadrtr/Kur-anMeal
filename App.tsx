@@ -6,10 +6,11 @@ import HomeView from './components/HomeView';
 import FavoritesView from './components/FavoritesView';
 import BookmarksView from './components/BookmarksView';
 import SettingsView from './components/SettingsView';
+import HatimView from './components/HatimView';
 import { SURAH_METADATA } from './constants';
 import { Surah } from './types';
 
-type ViewState = 'home' | 'reader' | 'favorites' | 'bookmarks' | 'settings';
+type ViewState = 'home' | 'reader' | 'favorites' | 'bookmarks' | 'settings' | 'hatim';
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
 type ReciterType = 'husary' | 'alqatami' | 'dosari';
 type DisplayMode = 'both' | 'arabic' | 'turkish';
@@ -42,6 +43,16 @@ const App: React.FC = () => {
     return (saved as FontSize) || 'medium';
   });
   const [currentView, setCurrentView] = useState<ViewState>('home');
+  
+  // Hatim Mode State
+  const [isHatimMode, setIsHatimMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('isHatimMode');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [completedSurahs, setCompletedSurahs] = useState<number[]>(() => {
+    const saved = localStorage.getItem('completedSurahs');
+    return saved ? JSON.parse(saved) : [];
+  });
   
   // Data State
   const [surahs, setSurahs] = useState<Surah[]>([]);
@@ -170,6 +181,16 @@ const App: React.FC = () => {
     localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
   }, [bookmarks]);
 
+  // Persist Hatim Mode
+  useEffect(() => {
+    localStorage.setItem('isHatimMode', JSON.stringify(isHatimMode));
+  }, [isHatimMode]);
+
+  // Persist Completed Surahs
+  useEffect(() => {
+    localStorage.setItem('completedSurahs', JSON.stringify(completedSurahs));
+  }, [completedSurahs]);
+
   // If user types in search, switch to home view to show results
   useEffect(() => {
     if (searchQuery.length > 0 && currentView !== 'home') {
@@ -204,6 +225,22 @@ const App: React.FC = () => {
     setSearchQuery("");
     setCurrentView('settings');
     closeSidebar();
+  };
+
+  const goHatim = () => {
+    setSearchQuery("");
+    setCurrentView('hatim');
+    closeSidebar();
+  };
+
+  const toggleHatimMode = () => {
+    const newMode = !isHatimMode;
+    setIsHatimMode(newMode);
+    
+    // Hatim modu kapatılırsa tüm verileri sıfırla
+    if (!newMode) {
+      setCompletedSurahs([]);
+    }
   };
   
   const handleSelectSurah = (id: number) => {
@@ -245,6 +282,16 @@ const App: React.FC = () => {
 
   const isAyahBookmarked = (surahId: number, ayahId: number) => {
     return bookmarks.includes(`${surahId}:${ayahId}`);
+  };
+
+  const toggleSurahCompletion = (surahId: number) => {
+    setCompletedSurahs(prev => 
+      prev.includes(surahId) ? prev.filter(id => id !== surahId) : [...prev, surahId]
+    );
+  };
+
+  const isSurahCompleted = (surahId: number) => {
+    return completedSurahs.includes(surahId);
   };
 
   // --- Random Ayah Logic (Equal Probability) ---
@@ -308,6 +355,7 @@ const App: React.FC = () => {
         onBookmarksClick={goBookmarks}
         onRandomClick={handleRandomAyah}
         onSettingsClick={goSettings}
+        onHatimClick={goHatim}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -325,7 +373,10 @@ const App: React.FC = () => {
           {currentView === 'home' ? (
             <HomeView 
               surahs={filteredSurahs} 
-              onSelectSurah={handleSelectSurah} 
+              onSelectSurah={handleSelectSurah}
+              isHatimMode={isHatimMode}
+              completedSurahs={completedSurahs}
+              onToggleSurahCompletion={toggleSurahCompletion}
             />
           ) : currentView === 'favorites' ? (
             <FavoritesView 
@@ -353,6 +404,15 @@ const App: React.FC = () => {
               onArabicFontSizeChange={setArabicFontSize}
               turkishFontSize={turkishFontSize}
               onTurkishFontSizeChange={setTurkishFontSize}
+            />
+          ) : currentView === 'hatim' ? (
+            <HatimView 
+              surahs={surahs}
+              completedSurahs={completedSurahs}
+              onToggleSurahCompletion={toggleSurahCompletion}
+              onSelectSurah={handleSelectSurah}
+              isHatimMode={isHatimMode}
+              onToggleHatimMode={toggleHatimMode}
             />
           ) : currentSurah ? (
             <SurahView 

@@ -7,6 +7,7 @@ Bu proje, insanların Kur'an-ı Kerim'i kolay bir şekilde okuyabilmeleri için 
 ## Özellikler
 
 - **Normal Okuma**: Normal okuma modu.
+- **Hatim Modu**: Hatim Modunu açarak okunan sureleri işaretleme. Hatim Takibi.
 - **Ses Modu**: İstenen ayet için farklı okuyuculardan arapça sesli dinleme.
 - **Karışık Bağlamsal Ayet Okuma**: Butona basarak ayetler arasından sistem size bir ayet gösterir.
 - **Ayet Beğeni**: Kaydetmek için ayet beğenme.
