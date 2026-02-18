@@ -21,7 +21,17 @@ const HatimView: React.FC<HatimViewProps> = ({
 }) => {
   const totalSurahs = surahs.length;
   const completedCount = completedSurahs.length;
-  const completionPercentage = totalSurahs > 0 ? Math.round((completedCount / totalSurahs) * 100) : 0;
+  
+  // Toplam ayet sayısını hesapla
+  const totalAyahs = surahs.reduce((sum, surah) => sum + surah.verseCount, 0);
+  
+  // Okunan surelerdeki toplam ayet sayısını hesapla
+  const completedAyahs = surahs
+    .filter(surah => completedSurahs.includes(surah.id))
+    .reduce((sum, surah) => sum + surah.verseCount, 0);
+  
+  // Ayet bazlı tamamlanma yüzdesi
+  const completionPercentage = totalAyahs > 0 ? Math.round((completedAyahs / totalAyahs) * 100) : 0;
 
   const handleToggleHatimMode = () => {
     // Hatim modu kapatılıyorsa ve veri varsa onay iste
@@ -170,6 +180,11 @@ const HatimView: React.FC<HatimViewProps> = ({
                     </h3>
                     <p className="text-sm text-light-secondary dark:text-dark-secondary">
                       {surah.verseCount} Ayet
+                      {isCompleted && (
+                        <span className="ml-2 text-green-600 dark:text-green-400 font-medium">
+                          • Okundu ✓
+                        </span>
+                      )}
                     </p>
                   </button>
                 </div>
