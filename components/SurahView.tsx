@@ -21,6 +21,7 @@ interface SurahViewProps {
   displayMode: DisplayMode;
   arabicFontSize: FontSize;
   turkishFontSize: FontSize;
+  backgroundVideoRef: React.RefObject<HTMLVideoElement>;
 }
 
 const SurahView: React.FC<SurahViewProps> = ({ 
@@ -35,7 +36,8 @@ const SurahView: React.FC<SurahViewProps> = ({
   reciter,
   displayMode,
   arabicFontSize,
-  turkishFontSize
+  turkishFontSize,
+  backgroundVideoRef
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [sharing, setSharing] = React.useState(false);
@@ -73,6 +75,11 @@ const SurahView: React.FC<SurahViewProps> = ({
 
   // Sure değiştiğinde preload edilen sesi temizle
   React.useEffect(() => {
+    // Video sesini kapat
+    if (backgroundVideoRef.current) {
+      backgroundVideoRef.current.muted = true;
+    }
+    
     // Tüm scheduled sesleri durdur
     allScheduledSourcesRef.current.forEach(source => {
       try {
@@ -213,6 +220,11 @@ const SurahView: React.FC<SurahViewProps> = ({
 
   // Tek bir ayet için ses çal (basit versiyon)
   const playAyahAudio = (ayahIndex: number, onComplete: () => void) => {
+    // Video sesini aç
+    if (backgroundVideoRef.current) {
+      backgroundVideoRef.current.muted = false;
+    }
+
     const ayah = surah.ayahs[ayahIndex];
     const ayahNumbers = getAyahNumbers(ayah.numberInSurah);
     let currentIdx = 0;
@@ -234,6 +246,10 @@ const SurahView: React.FC<SurahViewProps> = ({
 
       audio.onerror = () => {
         console.error('Ses yükleme hatası');
+        // Video sesini kapat
+        if (backgroundVideoRef.current) {
+          backgroundVideoRef.current.muted = true;
+        }
         setIsPlaying(false);
         setCurrentPlayingIndex(null);
         setIsAutoPlaying(false);
@@ -242,6 +258,10 @@ const SurahView: React.FC<SurahViewProps> = ({
 
       audio.play().catch((err) => {
         console.error('Ses çalma hatası:', err);
+        // Video sesini kapat
+        if (backgroundVideoRef.current) {
+          backgroundVideoRef.current.muted = true;
+        }
         setIsPlaying(false);
         setCurrentPlayingIndex(null);
         setIsAutoPlaying(false);
@@ -257,6 +277,10 @@ const SurahView: React.FC<SurahViewProps> = ({
     // Aynı ayete tekrar basılırsa durdur
     if (currentPlayingIndex === index && isPlaying) {
       audioRef.current?.pause();
+      // Video sesini kapat
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.muted = true;
+      }
       setIsPlaying(false);
       setCurrentPlayingIndex(null);
       return;
@@ -271,6 +295,10 @@ const SurahView: React.FC<SurahViewProps> = ({
     setIsPlaying(true);
 
     playAyahAudio(index, () => {
+      // Video sesini kapat
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.muted = true;
+      }
       setIsPlaying(false);
       setCurrentPlayingIndex(null);
     });
@@ -345,6 +373,10 @@ const SurahView: React.FC<SurahViewProps> = ({
   const playAutoSequenceSeamless = async (startIndex: number, currentTime: number = 0) => {
     // Durdurulmuşsa çık
     if (!isAutoPlayingRef.current) {
+      // Video sesini kapat
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.muted = true;
+      }
       setIsPlaying(false);
       setCurrentPlayingIndex(null);
       return;
@@ -352,6 +384,10 @@ const SurahView: React.FC<SurahViewProps> = ({
 
     // Sure bittiyse dur
     if (startIndex >= surah.ayahs.length) {
+      // Video sesini kapat
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.muted = true;
+      }
       setIsPlaying(false);
       setCurrentPlayingIndex(null);
       setIsAutoPlaying(false);
@@ -432,6 +468,11 @@ const SurahView: React.FC<SurahViewProps> = ({
       isAutoPlayingRef.current = false;
       setIsAutoPlaying(false);
       
+      // Video sesini kapat
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.muted = true;
+      }
+      
       // Tüm scheduled audio source'ları durdur
       allScheduledSourcesRef.current.forEach(source => {
         try {
@@ -458,7 +499,12 @@ const SurahView: React.FC<SurahViewProps> = ({
       setIsPlaying(false);
       setCurrentPlayingIndex(null);
     } else {
-      // Başlat - İlk olarak sonraki ayetleri decode et
+      // Başlat - Video sesini aç
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.muted = false;
+      }
+      
+      // İlk olarak sonraki ayetleri decode et
       isAutoPlayingRef.current = true;
       setIsAutoPlaying(true);
       
@@ -473,6 +519,11 @@ const SurahView: React.FC<SurahViewProps> = ({
   // Component unmount olduğunda sesi durdur ve buffer'ı temizle
   React.useEffect(() => {
     return () => {
+      // Video sesini kapat
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.muted = true;
+      }
+      
       // Tüm scheduled sesleri durdur
       allScheduledSourcesRef.current.forEach(source => {
         try {
@@ -593,9 +644,12 @@ const SurahView: React.FC<SurahViewProps> = ({
       // Dinamik import
       const html2canvas = (await import('html2canvas')).default;
       
+      // Karanlık mod kontrolü
+      const isDarkMode = document.documentElement.classList.contains('dark');
+      
       // Kartın screenshot'ını al
       const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: null,
+        backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
         scale: 3, // Daha yüksek kalite için
         logging: false,
         useCORS: true,
@@ -652,9 +706,12 @@ const SurahView: React.FC<SurahViewProps> = ({
       // Dinamik import
       const html2canvas = (await import('html2canvas')).default;
       
+      // Karanlık mod kontrolü
+      const isDarkMode = document.documentElement.classList.contains('dark');
+      
       // Kartın screenshot'ını al
       const canvas = await html2canvas(targetRef, {
-        backgroundColor: null,
+        backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
         scale: 3,
         logging: false,
         useCORS: true,
@@ -740,42 +797,41 @@ const SurahView: React.FC<SurahViewProps> = ({
   };
 
   return (
-    <main className="flex flex-col h-full bg-light-bg dark:bg-dark-bg relative overflow-hidden">
+    <main className="flex flex-col h-full bg-transparent relative overflow-hidden">
       
-      {/* Top Info Bar - Rigid Fixed Height - Updated to remove Arabic Title */}
-      <div className="flex-none py-6 px-4 text-center z-10 shrink-0 border-b border-transparent bg-light-bg dark:bg-dark-bg transition-all">
-        <h1 className="text-1xl md:text-1xl font-bold text-light-text dark:text-dark-text mb-4 leading-tight">
-          {surah.nameTurkish}
-        </h1>
-        
-        {/* Bismillah (Significantly larger) */}
-        {surah.id !== 9 && (
-           <div className="mt-2 opacity-75 font-arabic text-2xl md:text-3xl text-light-text dark:text-dark-text leading-relaxed">
-             {BISMILLAH}
-           </div>
-        )}
-      </div>
-
       {/* Main Card Area - Değişken yapı modlara göre */}
       {navigationMode === 'scroll' ? (
         // Scroll Modu - Tüm ayetler alt alta
-        <div className="flex-1 overflow-y-auto relative scroll-smooth bg-light-bg dark:bg-dark-bg">
-          <div className="max-w-2xl mx-auto p-3 md:p-8 space-y-6">
+        <div className="flex-1 overflow-y-auto relative scroll-smooth bg-transparent">
+          <div className="max-w-4xl lg:max-w-5xl mx-auto px-3 md:px-4 py-3 md:py-4 space-y-6">
             {surah.ayahs.map((ayah, index) => (
               <div 
                 key={ayah.id}
                 ref={(el) => (cardRefs.current[index] = el)}
-                className={`w-full bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border-2 transition-all duration-300 p-5 md:p-10 relative flex flex-col items-center text-center ${
+                className={`w-full bg-light-card/50 dark:bg-dark-card/50 rounded-2xl shadow-sm border-2 transition-all duration-300 p-6 md:p-12 lg:p-16 relative flex flex-col items-center text-center ${
                   isAutoPlaying && currentPlayingIndex === index
                     ? 'border-green-500 shadow-lg shadow-green-500/20'
                     : 'border-light-border dark:border-dark-border'
                 }`}
               >
-                {/* Sure Adı ve Ayet Numarası */}
-                <div className="w-full mb-4 text-center pt-2">
-                  <h2 className="text-sm md:text-base font-medium text-light-secondary dark:text-dark-secondary opacity-70">
-                    {surah.nameTurkish} - {ayah.numberInSurah}. Ayet
-                  </h2>
+                {/* Sure İsmi ve Bismillah - Sadece ilk ayette */}
+                {index === 0 && (
+                  <div className="w-full mb-6 pb-6 border-b border-light-border/30 dark:border-dark-border/30">
+                    <h1 className="text-lg md:text-xl font-bold text-light-text dark:text-dark-text mb-3">
+                      {surah.nameTurkish}
+                    </h1>
+                    {surah.id !== 9 && (
+                      <div className="opacity-75 font-arabic text-xl md:text-2xl text-light-text dark:text-dark-text leading-relaxed">
+                        {BISMILLAH}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Ayet Numarası - Minimal Badge */}
+                <div className="w-full mb-6 text-center">
+                  <span className="inline-block text-xs md:text-sm font-semibold px-3 py-1.5 rounded-full bg-light-bg/50 dark:bg-dark-bg/50 text-light-secondary dark:text-dark-secondary border border-light-border/50 dark:border-dark-border/50">
+                    {ayah.numberInSurah}. Ayet
+                  </span>
                 </div>
 
                 {/* Arabic Text */}
@@ -890,25 +946,36 @@ const SurahView: React.FC<SurahViewProps> = ({
       ) : (
         // Arrows ve Swipe Modu - Tek ayet gösterimi
         <div 
-          className="flex-1 overflow-y-auto relative scroll-smooth bg-light-bg dark:bg-dark-bg"
+          className="flex-1 overflow-y-auto relative scroll-smooth bg-transparent"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <div className="min-h-full flex flex-col items-center justify-center p-3 md:p-8">
+          <div className="min-h-full flex flex-col items-center justify-center px-3 md:px-4 py-3 md:py-6 lg:py-8">
             <div 
               ref={cardRef}
-              className={`w-full max-w-2xl bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border-2 p-5 md:p-10 relative flex flex-col items-center text-center transition-all duration-300 my-2 ${
+              className={`w-full max-w-4xl lg:max-w-5xl bg-light-card/50 dark:bg-dark-card/50 rounded-2xl shadow-sm border-2 p-6 md:p-12 lg:p-16 relative flex flex-col items-center text-center transition-all duration-300 my-2 ${
                 currentPlayingIndex === safeIndex && isPlaying
                   ? 'border-green-500 shadow-lg shadow-green-500/20'
                   : 'border-light-border dark:border-dark-border'
               }`}
             >
-              {/* Sure Adı ve Ayet Numarası */}
-              <div className="w-full mb-4 text-center pt-2">
-                <h2 className="text-sm md:text-base font-medium text-light-secondary dark:text-dark-secondary opacity-70">
-                  {surah.nameTurkish} - {currentAyah.numberInSurah}. Ayet
-                </h2>
+              {/* Sure İsmi ve Bismillah - Üstte */}
+              <div className="w-full mb-6 pb-6 border-b border-light-border/30 dark:border-dark-border/30">
+                <h1 className="text-lg md:text-xl font-bold text-light-text dark:text-dark-text mb-3">
+                  {surah.nameTurkish}
+                </h1>
+                {surah.id !== 9 && (
+                  <div className="opacity-75 font-arabic text-xl md:text-2xl text-light-text dark:text-dark-text leading-relaxed">
+                    {BISMILLAH}
+                  </div>
+                )}
+              </div>
+              {/* Ayet Numarası - Minimal Badge */}
+              <div className="w-full mb-6 text-center">
+                <span className="inline-block text-xs md:text-sm font-semibold px-3 py-1.5 rounded-full bg-light-bg/50 dark:bg-dark-bg/50 text-light-secondary dark:text-dark-secondary border border-light-border/50 dark:border-dark-border/50">
+                  {currentAyah.numberInSurah}. Ayet
+                </span>
               </div>
 
               {/* Arabic Text */}
@@ -1008,7 +1075,7 @@ const SurahView: React.FC<SurahViewProps> = ({
       )}
 
       {/* Bottom Navigation Bar - Rigid Fixed */}
-      <div className="flex-none bg-light-card dark:bg-dark-card border-t border-light-border dark:border-dark-border p-3 md:p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-30 shrink-0">
+      <div className="flex-none bg-light-card/50 dark:bg-dark-card/50 border-t border-light-border dark:border-dark-border p-3 md:p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-30 shrink-0">
          <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
             
             {/* Previous Button - Sadece arrows modunda */}

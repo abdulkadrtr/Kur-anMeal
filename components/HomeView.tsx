@@ -18,7 +18,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   onToggleSurahCompletion
 }) => {
   return (
-    <main className="flex-1 h-[calc(100vh-4rem)] overflow-y-auto bg-light-bg dark:bg-dark-bg scroll-smooth p-4 md:p-8">
+    <main className="flex-1 h-[calc(100vh-4rem)] overflow-y-auto bg-transparent scroll-smooth p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-10 mt-6">
           <h1 className="text-3xl md:text-4xl font-bold text-light-text dark:text-dark-text mb-3">
@@ -40,9 +40,9 @@ const HomeView: React.FC<HomeViewProps> = ({
               return (
                 <div
                   key={surah.id}
-                  className={`relative flex items-center justify-between p-5 bg-light-card dark:bg-dark-card rounded-xl shadow-sm border transition-all duration-300 group ${
+                  className={`relative flex items-center justify-between p-5 bg-light-card/50 dark:bg-dark-card/50 rounded-xl shadow-sm border transition-all duration-300 group ${
                     isCompleted && isHatimMode
-                      ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                      ? 'border-green-500 bg-green-50/70 dark:bg-green-900/30'
                       : 'border-light-border dark:border-dark-border hover:border-light-accent dark:hover:border-dark-accent hover:shadow-md'
                   }`}
                 >

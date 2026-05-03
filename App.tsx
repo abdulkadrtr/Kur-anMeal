@@ -15,6 +15,7 @@ type NavigationMode = 'arrows' | 'swipe' | 'scroll';
 type ReciterType = 'husary' | 'alqatami' | 'dosari';
 type DisplayMode = 'both' | 'arabic' | 'turkish';
 type FontSize = 'small' | 'medium' | 'large';
+type BackgroundTheme = 'default' | 'fire' | 'rain' | 'wind' | 'waterfall';
 
 const App: React.FC = () => {
   // --- State Management ---
@@ -24,11 +25,11 @@ const App: React.FC = () => {
   });
   const [navigationMode, setNavigationMode] = useState<NavigationMode>(() => {
     const saved = localStorage.getItem('navigationMode');
-    return (saved as NavigationMode) || 'scroll';
+    return (saved as NavigationMode) || 'arrows';
   });
   const [reciter, setReciter] = useState<ReciterType>(() => {
     const saved = localStorage.getItem('reciter');
-    return (saved as ReciterType) || 'husary';
+    return (saved as ReciterType) || 'alqatami';
   });
   const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
     const saved = localStorage.getItem('displayMode');
@@ -43,6 +44,21 @@ const App: React.FC = () => {
     return (saved as FontSize) || 'medium';
   });
   const [currentView, setCurrentView] = useState<ViewState>('home');
+  
+  // Background Theme State
+  const [backgroundTheme, setBackgroundTheme] = useState<BackgroundTheme>(() => {
+    const saved = localStorage.getItem('backgroundTheme');
+    return (saved as BackgroundTheme) || 'default';
+  });
+  
+  // Video Volume State (0-100)
+  const [videoVolume, setVideoVolume] = useState<number>(() => {
+    const saved = localStorage.getItem('videoVolume');
+    return saved ? parseInt(saved) : 50; // Varsayılan %50
+  });
+  
+  // Video ref for background video
+  const backgroundVideoRef = React.useRef<HTMLVideoElement>(null);
   
   // Hatim Mode State
   const [isHatimMode, setIsHatimMode] = useState<boolean>(() => {
@@ -171,6 +187,20 @@ const App: React.FC = () => {
     localStorage.setItem('turkishFontSize', turkishFontSize);
   }, [turkishFontSize]);
 
+  // Persist Background Theme
+  useEffect(() => {
+    localStorage.setItem('backgroundTheme', backgroundTheme);
+  }, [backgroundTheme]);
+
+  // Persist Video Volume
+  useEffect(() => {
+    localStorage.setItem('videoVolume', videoVolume.toString());
+    // Video ref varsa volume'u güncelle
+    if (backgroundVideoRef.current) {
+      backgroundVideoRef.current.volume = videoVolume / 100;
+    }
+  }, [videoVolume]);
+
   // Persist Favorites
   useEffect(() => {
     localStorage.setItem('favorites', JSON.stringify(favorites));
@@ -199,7 +229,16 @@ const App: React.FC = () => {
   }, [searchQuery]);
 
   // --- Handlers ---
-  const toggleTheme = () => setIsDarkMode(prev => !prev);
+  const toggleTheme = () => {
+    const newDarkMode = !isDarkMode;
+    setIsDarkMode(newDarkMode);
+    
+    // Aydınlık moda geçildiğinde video temalarını varsayılana çevir
+    if (!newDarkMode && (backgroundTheme === 'fire' || backgroundTheme === 'rain' || backgroundTheme === 'wind' || backgroundTheme === 'waterfall')) {
+      setBackgroundTheme('default');
+    }
+  };
+  
   const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
   const closeSidebar = () => setIsSidebarOpen(false);
 
@@ -294,6 +333,15 @@ const App: React.FC = () => {
     return completedSurahs.includes(surahId);
   };
 
+  const handleBackgroundThemeChange = (theme: BackgroundTheme) => {
+    setBackgroundTheme(theme);
+    
+    // Herhangi bir video teması seçildiğinde otomatik olarak karanlık moda geç
+    if ((theme === 'fire' || theme === 'rain' || theme === 'wind' || theme === 'waterfall') && !isDarkMode) {
+      setIsDarkMode(true);
+    }
+  };
+
   // --- Random Ayah Logic (Equal Probability) ---
   const handleRandomAyah = () => {
     if (surahs.length === 0) return;
@@ -344,7 +392,49 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden font-sans">
+    <div className="flex flex-col h-[100dvh] overflow-hidden font-sans relative">
+      {/* Global Background Video - Video temaları aktifse */}
+      {(backgroundTheme === 'fire' || backgroundTheme === 'rain' || backgroundTheme === 'wind' || backgroundTheme === 'waterfall') && (
+        <video
+          key={backgroundTheme} // Tema değiştiğinde video yeniden yüklenir
+          ref={backgroundVideoRef}
+          autoPlay
+          loop
+          muted={true}
+          playsInline
+          preload="auto"
+          className="fixed inset-0 w-full h-full object-cover -z-10"
+          style={{ opacity: 0.5 }}
+          onLoadedData={(e) => {
+            const video = e.currentTarget;
+            video.muted = true; // Başlangıçta sessiz
+            video.volume = videoVolume / 100; // Ses seviyesini ayarla
+            // Videoyu 0.5 saniye sonrasından başlat (başlangıç sessizliğini atla)
+            video.currentTime = 0.5;
+            video.play().catch(err => {
+              console.log('Video autoplay engellendi:', err);
+            });
+          }}
+          onTimeUpdate={(e) => {
+            const video = e.currentTarget;
+            // Video bitiminden 1 saniye önce 0.5 saniyeye sar (seamless loop için)
+            if (video.duration > 0 && video.currentTime >= video.duration - 1) {
+              video.currentTime = 0.5;
+            }
+          }}
+        >
+          <source 
+            src={
+              backgroundTheme === 'fire' ? '/fire-video.mp4' :
+              backgroundTheme === 'rain' ? '/rain-video.mp4' :
+              backgroundTheme === 'wind' ? '/wind-video.mp4' :
+              '/waterfall-video.mp4'
+            } 
+            type="video/mp4" 
+          />
+        </video>
+      )}
+
       {/* Header */}
       <Header 
         searchQuery={searchQuery}
@@ -356,6 +446,7 @@ const App: React.FC = () => {
         onRandomClick={handleRandomAyah}
         onSettingsClick={goSettings}
         onHatimClick={goHatim}
+        backgroundTheme={backgroundTheme}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -366,6 +457,7 @@ const App: React.FC = () => {
           onSelectSurah={handleSelectSurah} 
           isOpen={isSidebarOpen}
           onClose={closeSidebar}
+          backgroundTheme={backgroundTheme}
         />
 
         {/* Main Content Area */}
@@ -377,6 +469,7 @@ const App: React.FC = () => {
               isHatimMode={isHatimMode}
               completedSurahs={completedSurahs}
               onToggleSurahCompletion={toggleSurahCompletion}
+              backgroundTheme={backgroundTheme}
             />
           ) : currentView === 'favorites' ? (
             <FavoritesView 
@@ -404,6 +497,10 @@ const App: React.FC = () => {
               onArabicFontSizeChange={setArabicFontSize}
               turkishFontSize={turkishFontSize}
               onTurkishFontSizeChange={setTurkishFontSize}
+              backgroundTheme={backgroundTheme}
+              onBackgroundThemeChange={handleBackgroundThemeChange}
+              videoVolume={videoVolume}
+              onVideoVolumeChange={setVideoVolume}
             />
           ) : currentView === 'hatim' ? (
             <HatimView 
@@ -428,6 +525,7 @@ const App: React.FC = () => {
               displayMode={displayMode}
               arabicFontSize={arabicFontSize}
               turkishFontSize={turkishFontSize}
+              backgroundVideoRef={backgroundVideoRef}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center text-light-secondary dark:text-dark-secondary">

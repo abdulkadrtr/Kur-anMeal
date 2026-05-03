@@ -48,7 +48,7 @@ const HatimView: React.FC<HatimViewProps> = ({
   };
 
   return (
-    <main className="flex-1 h-[calc(100vh-4rem)] overflow-y-auto bg-light-bg dark:bg-dark-bg scroll-smooth p-4 md:p-8">
+    <main className="flex-1 h-[calc(100vh-4rem)] overflow-y-auto bg-transparent scroll-smooth p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8 mt-6">
@@ -91,7 +91,7 @@ const HatimView: React.FC<HatimViewProps> = ({
           )}
 
           {/* Progress Stats */}
-          <div className="bg-light-card dark:bg-dark-card rounded-2xl shadow-sm border border-light-border dark:border-dark-border p-6 mb-8">
+          <div className="bg-light-card/50 dark:bg-dark-card/50 rounded-2xl shadow-sm border border-light-border dark:border-dark-border p-6 mb-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Completion Percentage */}
               <div className="text-center">
@@ -157,9 +157,9 @@ const HatimView: React.FC<HatimViewProps> = ({
             return (
               <div
                 key={surah.id}
-                className={`flex items-center justify-between p-4 bg-light-card dark:bg-dark-card rounded-xl shadow-sm border-2 transition-all duration-300 ${
+                className={`flex items-center justify-between p-4 bg-light-card/50 dark:bg-dark-card/50 rounded-xl shadow-sm border-2 transition-all duration-300 ${
                   isCompleted
-                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                    ? 'border-green-500 bg-green-50/70 dark:bg-green-900/30'
                     : 'border-light-border dark:border-dark-border hover:border-light-accent dark:hover:border-dark-accent'
                 }`}
               >

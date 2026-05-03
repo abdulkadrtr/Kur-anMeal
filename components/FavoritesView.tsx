@@ -45,7 +45,7 @@ const FavoritesView: React.FC<FavoritesViewProps> = ({ favorites, surahs, onNavi
   }
 
   return (
-    <div className="flex-1 h-full overflow-y-auto bg-light-bg dark:bg-dark-bg p-4 md:p-8 scroll-smooth">
+    <div className="flex-1 h-full overflow-y-auto bg-transparent p-4 md:p-8 scroll-smooth">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-2xl md:text-3xl font-bold mb-8 text-light-text dark:text-dark-text flex items-center gap-3">
           <Heart className="fill-red-500 text-red-500" />
@@ -57,7 +57,7 @@ const FavoritesView: React.FC<FavoritesViewProps> = ({ favorites, surahs, onNavi
             <div 
                key={`${item.surah.id}:${item.ayah.id}`} 
                onClick={() => onNavigate(item.surah.id, item.ayahIndex)}
-               className="bg-light-card dark:bg-dark-card p-5 md:p-6 rounded-2xl border border-light-border dark:border-dark-border shadow-sm cursor-pointer hover:shadow-md hover:border-light-accent dark:hover:border-dark-accent transition-all group"
+               className="bg-light-card/50 dark:bg-dark-card/50 p-5 md:p-6 rounded-2xl border border-light-border dark:border-dark-border shadow-sm cursor-pointer hover:shadow-md hover:border-light-accent dark:hover:border-dark-accent transition-all group"
             >
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">

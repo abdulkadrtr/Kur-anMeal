@@ -8,9 +8,14 @@ interface SidebarProps {
   onSelectSurah: (id: number) => void;
   isOpen: boolean;
   onClose: () => void;
+  backgroundTheme?: 'default' | 'fire' | 'rain' | 'wind' | 'waterfall';
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ surahs, currentSurahId, onSelectSurah, isOpen, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ surahs, currentSurahId, onSelectSurah, isOpen, onClose, backgroundTheme = 'default' }) => {
+  const sidebarBgClass = (backgroundTheme === 'fire' || backgroundTheme === 'rain' || backgroundTheme === 'wind' || backgroundTheme === 'waterfall')
+    ? 'bg-light-card/50 dark:bg-dark-card/50'
+    : 'bg-light-card dark:bg-dark-card';
+
   return (
     <>
       {/* Mobile Overlay */}
@@ -25,7 +30,7 @@ const Sidebar: React.FC<SidebarProps> = ({ surahs, currentSurahId, onSelectSurah
       <aside className={`
         fixed md:static inset-y-0 left-0 z-40
         flex flex-col w-72 h-full md:h-[calc(100vh-4rem)]
-        border-r bg-light-card dark:bg-dark-card border-light-border dark:border-dark-border
+        border-r ${sidebarBgClass} border-light-border dark:border-dark-border
         transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>

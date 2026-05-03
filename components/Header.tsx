@@ -11,6 +11,7 @@ interface HeaderProps {
   onRandomClick?: () => void;
   onSettingsClick?: () => void;
   onHatimClick?: () => void;
+  backgroundTheme?: 'default' | 'fire' | 'rain' | 'wind' | 'waterfall';
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -22,10 +23,15 @@ const Header: React.FC<HeaderProps> = ({
   onBookmarksClick,
   onRandomClick,
   onSettingsClick,
-  onHatimClick
+  onHatimClick,
+  backgroundTheme = 'default'
 }) => {
+  const headerClass = (backgroundTheme === 'fire' || backgroundTheme === 'rain' || backgroundTheme === 'wind' || backgroundTheme === 'waterfall')
+    ? 'sticky top-0 z-30 flex items-center justify-between px-4 md:px-6 py-4 transition-colors duration-300 border-b shadow-sm bg-light-card/50 dark:bg-dark-card/50 border-light-border dark:border-dark-border h-16'
+    : 'sticky top-0 z-30 flex items-center justify-between px-4 md:px-6 py-4 transition-colors duration-300 border-b shadow-sm bg-light-card dark:bg-dark-card border-light-border dark:border-dark-border h-16';
+
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between px-4 md:px-6 py-4 transition-colors duration-300 border-b shadow-sm bg-light-card dark:bg-dark-card border-light-border dark:border-dark-border h-16">
+    <header className={headerClass}>
       <div className="flex items-center gap-3 md:gap-4">
         {/* Mobile Menu Button */}
         <button 
