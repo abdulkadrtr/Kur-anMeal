@@ -13,6 +13,7 @@ Bu proje, insanların Kur'an-ı Kerim'i kolay bir şekilde okuyabilmeleri için 
 - **Ayet Beğeni**: Kaydetmek için ayet beğenme.
 - **Kaldığım Yerden Devam Et**: Okuma yaparken kalınan yeri kaydetme.
 - **Gece Modu**: Aydınlık ve karanlık okuma modları.
+- **Farklı Arka Planlar**: Rüzgar, Yağmur, Şelale gibi doğa sesleri ve arkaplanları.
 - **Uygulama Modu**: Mobil tarayıcı üzerinden `Daha Fazla-> Ana Sayfana Ekle -> Yükle` adımlarıyla uygulama olarak yükleme.
 
 ## Demo
