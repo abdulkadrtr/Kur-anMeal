@@ -425,10 +425,10 @@ const App: React.FC = () => {
         >
           <source 
             src={
-              backgroundTheme === 'fire' ? '/fire-video.mp4' :
-              backgroundTheme === 'rain' ? '/rain-video.mp4' :
-              backgroundTheme === 'wind' ? '/wind-video.mp4' :
-              '/waterfall-video.mp4'
+              backgroundTheme === 'fire' ? './fire-video.mp4' :
+              backgroundTheme === 'rain' ? './rain-video.mp4' :
+              backgroundTheme === 'wind' ? './wind-video.mp4' :
+              './waterfall-video.mp4'
             } 
             type="video/mp4" 
           />
