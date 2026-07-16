@@ -1,5 +1,5 @@
 // Service Worker for PWA
-const CACHE_NAME = 'kuran-meal-v1';
+const CACHE_NAME = 'kuran-meal-v2';
 const urlsToCache = [
   './',
   './index.html',
@@ -13,7 +13,6 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Cache açıldı');
         return cache.addAll(urlsToCache);
       })
       .catch((err) => {
@@ -40,45 +39,45 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+const cacheResponse = (request, response) => {
+  if (response && response.status === 200) {
+    const copy = response.clone();
+    caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+  }
+  return response;
+};
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  
-  if (url.pathname.endsWith('.mp4')) {
-    event.respondWith(fetch(event.request));
+
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') return;
+
+  if (event.request.method !== 'GET') return;
+
+  if (url.pathname.endsWith('.mp4')) return;
+
+  const isAppShell =
+    event.request.mode === 'navigate' ||
+    event.request.destination === 'script' ||
+    event.request.destination === 'style';
+
+  if (isAppShell) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => cacheResponse(event.request, response))
+        .catch(() =>
+          caches.match(event.request).then((cached) => cached || caches.match('./index.html'))
+        )
+    );
     return;
   }
 
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-
-        // Clone the request
-        const fetchRequest = event.request.clone();
-
-        return fetch(fetchRequest).then((response) => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-
-          // Clone the response
-          const responseToCache = response.clone();
-
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-
-          return response;
-        }).catch(() => {
-          // Offline fallback
-          return caches.match('./index.html');
-        });
-      })
+    caches.match(event.request).then((cached) => {
+      const networkFetch = fetch(event.request)
+        .then((response) => cacheResponse(event.request, response))
+        .catch(() => cached);
+      return cached || networkFetch;
+    })
   );
 });
