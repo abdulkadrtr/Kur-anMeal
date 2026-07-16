@@ -1,6 +1,7 @@
 import React from 'react';
 import { Surah } from '../types';
 import { BISMILLAH } from '../constants';
+import { formatTurkishText } from '../utils';
 import { Copy, ChevronLeft, ChevronRight, Heart, Check, Bookmark, Share2, Play, Pause, PlayCircle, StopCircle } from 'lucide-react';
 
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
@@ -22,11 +23,14 @@ interface SurahViewProps {
   arabicFontSize: FontSize;
   turkishFontSize: FontSize;
   backgroundVideoRef: React.RefObject<HTMLVideoElement>;
+  onAutoPlayNextSurah?: () => void;
+  autoPlayPending?: boolean;
+  onAutoPlayPendingConsumed?: () => void;
 }
 
-const SurahView: React.FC<SurahViewProps> = ({ 
-  surah, 
-  currentAyahIndex, 
+const SurahView: React.FC<SurahViewProps> = ({
+  surah,
+  currentAyahIndex,
   onAyahChange,
   isFavorite,
   onToggleFavorite,
@@ -37,7 +41,10 @@ const SurahView: React.FC<SurahViewProps> = ({
   displayMode,
   arabicFontSize,
   turkishFontSize,
-  backgroundVideoRef
+  backgroundVideoRef,
+  onAutoPlayNextSurah,
+  autoPlayPending,
+  onAutoPlayPendingConsumed
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [sharing, setSharing] = React.useState(false);
@@ -122,6 +129,13 @@ const SurahView: React.FC<SurahViewProps> = ({
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
   }, []);
+
+  React.useEffect(() => {
+    if (autoPlayPending) {
+      onAutoPlayPendingConsumed?.();
+      startAutoPlay(0);
+    }
+  }, [surah.id, autoPlayPending]);
 
   // Sürekli modda ayet değiştiğinde scroll yap (sadece programatik değişikliklerde)
   React.useEffect(() => {
@@ -382,7 +396,7 @@ const SurahView: React.FC<SurahViewProps> = ({
       return;
     }
 
-    // Sure bittiyse dur
+    // Sure bittiyse sıradaki sureye geç (yoksa dur)
     if (startIndex >= surah.ayahs.length) {
       // Video sesini kapat
       if (backgroundVideoRef.current) {
@@ -392,6 +406,11 @@ const SurahView: React.FC<SurahViewProps> = ({
       setCurrentPlayingIndex(null);
       setIsAutoPlaying(false);
       isAutoPlayingRef.current = false;
+
+      if (onAutoPlayNextSurah) {
+        const timeout = setTimeout(() => onAutoPlayNextSurah(), 250);
+        scheduledTimeoutsRef.current.push(timeout);
+      }
       return;
     }
 
@@ -461,6 +480,21 @@ const SurahView: React.FC<SurahViewProps> = ({
     scheduledTimeoutsRef.current.push(timeout);
   };
 
+  const startAutoPlay = async (fromIndex: number) => {
+    if (backgroundVideoRef.current) {
+      backgroundVideoRef.current.muted = false;
+    }
+
+    isAutoPlayingRef.current = true;
+    setIsAutoPlaying(true);
+
+    await preloadAndDecodeMultiple(fromIndex, 6);
+
+    if (!isAutoPlayingRef.current) return;
+
+    playAutoSequenceSeamless(fromIndex, 0);
+  };
+
   // Otomatik oynatmayı başlat/durdur
   const toggleAutoPlay = async () => {
     if (isAutoPlaying) {
@@ -499,20 +533,8 @@ const SurahView: React.FC<SurahViewProps> = ({
       setIsPlaying(false);
       setCurrentPlayingIndex(null);
     } else {
-      // Başlat - Video sesini aç
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.muted = false;
-      }
-      
-      // İlk olarak sonraki ayetleri decode et
-      isAutoPlayingRef.current = true;
-      setIsAutoPlaying(true);
-      
-      // İlk 6 ayeti decode et (daha fazla buffer)
-      await preloadAndDecodeMultiple(safeIndex, 6);
-      
-      // Seamless başlat
-      playAutoSequenceSeamless(safeIndex, 0);
+      // Başlat
+      await startAutoPlay(safeIndex);
     }
   };
 
@@ -768,15 +790,6 @@ const SurahView: React.FC<SurahViewProps> = ({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
-
-  // Helper function to format text with colored parentheses
-  const formatTurkishText = (text: string) => {
-    // Replaces (...) with a span styled with secondary color
-    return text.replace(
-      /\(([^)]+)\)/g, 
-      '<span class="text-light-secondary dark:text-dark-secondary font-normal opacity-90">($1)</span>'
-    );
   };
 
   // Font size classes

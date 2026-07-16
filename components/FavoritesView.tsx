@@ -1,5 +1,6 @@
 import React from 'react';
 import { Surah } from '../types';
+import { formatTurkishText } from '../utils';
 import { ArrowRight, Heart } from 'lucide-react';
 
 interface FavoritesViewProps {
@@ -24,13 +25,6 @@ const FavoritesView: React.FC<FavoritesViewProps> = ({ favorites, surahs, onNavi
     return { surah, ayah, ayahIndex };
   }).filter((item): item is { surah: Surah, ayah: any, ayahIndex: number } => item !== null);
 
-  // Helper function to format text with colored parentheses
-  const formatTurkishText = (text: string) => {
-    return text.replace(
-      /\(([^)]+)\)/g, 
-      '<span class="text-light-secondary dark:text-dark-secondary font-normal opacity-90">($1)</span>'
-    );
-  };
 
   if (favoriteItems.length === 0) {
     return (

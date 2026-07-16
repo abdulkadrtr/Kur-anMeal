@@ -15,6 +15,12 @@ export interface Surah {
   ayahs: Ayah[];
 }
 
+export interface AyahSearchResult {
+  surah: Surah;
+  ayah: Ayah;
+  ayahIndex: number;
+}
+
 export interface AudioState {
   isPlaying: boolean;
   currentSurahId: number | null;

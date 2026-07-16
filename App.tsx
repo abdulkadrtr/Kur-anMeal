@@ -8,7 +8,7 @@ import BookmarksView from './components/BookmarksView';
 import SettingsView from './components/SettingsView';
 import HatimView from './components/HatimView';
 import { SURAH_METADATA } from './constants';
-import { Surah } from './types';
+import { Surah, AyahSearchResult } from './types';
 
 type ViewState = 'home' | 'reader' | 'favorites' | 'bookmarks' | 'settings' | 'hatim';
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
@@ -77,9 +77,23 @@ const App: React.FC = () => {
 
   const [currentSurahId, setCurrentSurahId] = useState<number>(1);
   const [currentAyahIndex, setCurrentAyahIndex] = useState<number>(0);
-  
+
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState<boolean>(false);
+
+  const [pendingAutoPlay, setPendingAutoPlay] = useState<boolean>(false);
+
+  type NavSnapshot = { view: ViewState; surahId: number; ayahIndex: number; searchQuery: string };
+  const viewStackRef = React.useRef<NavSnapshot[]>([]);
+  const navStateRef = React.useRef<NavSnapshot>({ view: 'home', surahId: 1, ayahIndex: 0, searchQuery: '' });
+  const atGuardRef = React.useRef<boolean>(false);
+  const exitTimerRef = React.useRef<number | null>(null);
+  const [showExitToast, setShowExitToast] = useState<boolean>(false);
+
+  useEffect(() => {
+    navStateRef.current = { view: currentView, surahId: currentSurahId, ayahIndex: currentAyahIndex, searchQuery };
+  }, [currentView, currentSurahId, currentAyahIndex, searchQuery]);
   
   // Favorites State: Array of strings "surahId:ayahId"
   const [favorites, setFavorites] = useState<string[]>(() => {
@@ -144,14 +158,94 @@ const App: React.FC = () => {
   const currentSurah: Surah | undefined = surahs.find(s => s.id === currentSurahId);
   
   // Filter Surahs based on search query
-  const filteredSurahs = surahs.filter(s => 
+  const filteredSurahs = surahs.filter(s =>
     s.nameTurkish.toLocaleUpperCase('tr-TR').includes(searchQuery.toLocaleUpperCase('tr-TR')) ||
     s.nameArabic.toLocaleUpperCase('tr-TR').includes(searchQuery.toLocaleUpperCase('tr-TR')) ||
     s.id.toString().includes(searchQuery)
   );
 
+  const ayahSearchIndex = React.useMemo(() =>
+    surahs.flatMap(surah =>
+      surah.ayahs.map((ayah, ayahIndex) => ({
+        surah,
+        ayah,
+        ayahIndex,
+        searchText: ayah.textTurkish.toLocaleLowerCase('tr-TR')
+      }))
+    )
+  , [surahs]);
+
+  const ayahSearchResults: AyahSearchResult[] = React.useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase('tr-TR');
+    if (query.length < 3) return [];
+    return ayahSearchIndex
+      .filter(item => item.searchText.includes(query))
+      .map(({ surah, ayah, ayahIndex }) => ({ surah, ayah, ayahIndex }));
+  }, [ayahSearchIndex, searchQuery]);
+
+  const directAyahMatch: AyahSearchResult | null = React.useMemo(() => {
+    const match = searchQuery.trim().match(/^(.+?)[\s:/]+(\d+)$/);
+    if (!match) return null;
+
+    const normalize = (s: string) =>
+      s.toLocaleUpperCase('tr-TR').replace(/[^\p{L}\p{N}]/gu, '');
+    const namePart = match[1].trim();
+    const nameNormalized = normalize(namePart);
+    const ayahNo = parseInt(match[2]);
+    if (!nameNormalized || !ayahNo) return null;
+
+    const surah = surahs.find(s =>
+      s.id.toString() === namePart ||
+      normalize(s.nameTurkish).includes(nameNormalized)
+    );
+    if (!surah) return null;
+
+    const ayahIndex = surah.ayahs.findIndex(a => {
+      const parts = String(a.numberInSurah).split('-').map(n => parseInt(n));
+      return parts.length > 1
+        ? ayahNo >= parts[0] && ayahNo <= parts[parts.length - 1]
+        : parts[0] === ayahNo;
+    });
+    if (ayahIndex === -1) return null;
+
+    return { surah, ayah: surah.ayahs[ayahIndex], ayahIndex };
+  }, [surahs, searchQuery]);
+
   // --- Effects ---
-  
+  useEffect(() => {
+    window.history.replaceState({ kuranMeal: 'guard' }, '');
+    window.history.pushState({ kuranMeal: 'top' }, '');
+
+    const handlePopState = () => {
+      if (viewStackRef.current.length > 0) {
+        // Uygulama içinde bir önceki görünüme dön
+        const prev = viewStackRef.current.pop()!;
+        setCurrentView(prev.view);
+        setCurrentSurahId(prev.surahId);
+        setCurrentAyahIndex(prev.ayahIndex);
+        setSearchQuery(prev.searchQuery);
+        setIsSidebarOpen(false);
+        setIsMobileSearchOpen(false);
+        window.history.pushState({ kuranMeal: 'top' }, '');
+      } else {
+        // Kök görünümdeyiz: çıkış için ikinci basışı bekle
+        atGuardRef.current = true;
+        setShowExitToast(true);
+        if (exitTimerRef.current) window.clearTimeout(exitTimerRef.current);
+        exitTimerRef.current = window.setTimeout(() => {
+          setShowExitToast(false);
+          if (atGuardRef.current) {
+            window.history.pushState({ kuranMeal: 'top' }, '');
+            atGuardRef.current = false;
+          }
+        }, 2000);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Initialize Theme
   useEffect(() => {
     if (isDarkMode) {
@@ -224,11 +318,26 @@ const App: React.FC = () => {
   // If user types in search, switch to home view to show results
   useEffect(() => {
     if (searchQuery.length > 0 && currentView !== 'home') {
+      pushHistorySnapshot({ searchQuery: '' });
       setCurrentView('home');
     }
   }, [searchQuery]);
 
   // --- Handlers ---
+
+  const pushHistorySnapshot = (overrides?: Partial<NavSnapshot>) => {
+    if (atGuardRef.current) {
+      window.history.pushState({ kuranMeal: 'top' }, '');
+      atGuardRef.current = false;
+      if (exitTimerRef.current) {
+        window.clearTimeout(exitTimerRef.current);
+        exitTimerRef.current = null;
+      }
+      setShowExitToast(false);
+    }
+    viewStackRef.current.push({ ...navStateRef.current, ...overrides });
+    if (viewStackRef.current.length > 50) viewStackRef.current.shift();
+  };
   const toggleTheme = () => {
     const newDarkMode = !isDarkMode;
     setIsDarkMode(newDarkMode);
@@ -242,35 +351,19 @@ const App: React.FC = () => {
   const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
   const closeSidebar = () => setIsSidebarOpen(false);
 
-  const goHome = () => {
-    setSearchQuery(""); 
-    setCurrentView('home');
-    closeSidebar();
-  };
-  
-  const goFavorites = () => {
+  const goToView = (view: ViewState) => {
+    if (navStateRef.current.view !== view) pushHistorySnapshot();
     setSearchQuery("");
-    setCurrentView('favorites');
+    setCurrentView(view);
+    setIsMobileSearchOpen(false);
     closeSidebar();
   };
 
-  const goBookmarks = () => {
-    setSearchQuery("");
-    setCurrentView('bookmarks');
-    closeSidebar();
-  };
-
-  const goSettings = () => {
-    setSearchQuery("");
-    setCurrentView('settings');
-    closeSidebar();
-  };
-
-  const goHatim = () => {
-    setSearchQuery("");
-    setCurrentView('hatim');
-    closeSidebar();
-  };
+  const goHome = () => goToView('home');
+  const goFavorites = () => goToView('favorites');
+  const goBookmarks = () => goToView('bookmarks');
+  const goSettings = () => goToView('settings');
+  const goHatim = () => goToView('hatim');
 
   const toggleHatimMode = () => {
     const newMode = !isHatimMode;
@@ -283,17 +376,27 @@ const App: React.FC = () => {
   };
   
   const handleSelectSurah = (id: number) => {
+    const cur = navStateRef.current;
+    if (cur.view !== 'reader' || cur.surahId !== id) pushHistorySnapshot();
     setCurrentSurahId(id);
     setCurrentAyahIndex(0); // Reset to first Ayah
     setCurrentView('reader');
-    setSearchQuery(""); 
+    setSearchQuery("");
+    setIsMobileSearchOpen(false);
     closeSidebar();
   };
 
   const handleNavigateToAyah = (surahId: number, ayahIndex: number) => {
+    const cur = navStateRef.current;
+    if (cur.view !== 'reader' || cur.surahId !== surahId || cur.ayahIndex !== ayahIndex) {
+      pushHistorySnapshot();
+    }
     setCurrentSurahId(surahId);
     setCurrentAyahIndex(ayahIndex);
     setCurrentView('reader');
+
+    setSearchQuery("");
+    setIsMobileSearchOpen(false);
     closeSidebar();
   };
 
@@ -340,6 +443,15 @@ const App: React.FC = () => {
     if ((theme === 'fire' || theme === 'rain' || theme === 'wind' || theme === 'waterfall') && !isDarkMode) {
       setIsDarkMode(true);
     }
+  };
+
+  const handleAutoPlayNextSurah = () => {
+    if (currentView !== 'reader') return;
+    const idx = surahs.findIndex(s => s.id === currentSurahId);
+    if (idx === -1 || idx >= surahs.length - 1) return; // Son suredeyse dur
+    setPendingAutoPlay(true);
+    setCurrentSurahId(surahs[idx + 1].id);
+    setCurrentAyahIndex(0);
   };
 
   // --- Random Ayah Logic (Equal Probability) ---
@@ -447,7 +559,16 @@ const App: React.FC = () => {
         onSettingsClick={goSettings}
         onHatimClick={goHatim}
         backgroundTheme={backgroundTheme}
+        isMobileSearchOpen={isMobileSearchOpen}
+        setIsMobileSearchOpen={setIsMobileSearchOpen}
       />
+
+      {/* Çıkış Uyarısı (geri tuşuna ikinci kez basılırsa çıkılır) */}
+      {showExitToast && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-full bg-black/80 text-white text-sm font-medium shadow-lg backdrop-blur-sm pointer-events-none">
+          Çıkmak için tekrar geri tuşuna basın
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
@@ -463,13 +584,17 @@ const App: React.FC = () => {
         {/* Main Content Area */}
         <div className="flex-1 relative flex flex-col min-w-0">
           {currentView === 'home' ? (
-            <HomeView 
-              surahs={filteredSurahs} 
+            <HomeView
+              surahs={filteredSurahs}
               onSelectSurah={handleSelectSurah}
               isHatimMode={isHatimMode}
               completedSurahs={completedSurahs}
               onToggleSurahCompletion={toggleSurahCompletion}
               backgroundTheme={backgroundTheme}
+              searchQuery={searchQuery}
+              ayahResults={ayahSearchResults}
+              directResult={directAyahMatch}
+              onNavigateToAyah={handleNavigateToAyah}
             />
           ) : currentView === 'favorites' ? (
             <FavoritesView 
@@ -526,6 +651,9 @@ const App: React.FC = () => {
               arabicFontSize={arabicFontSize}
               turkishFontSize={turkishFontSize}
               backgroundVideoRef={backgroundVideoRef}
+              onAutoPlayNextSurah={handleAutoPlayNextSurah}
+              autoPlayPending={pendingAutoPlay}
+              onAutoPlayPendingConsumed={() => setPendingAutoPlay(false)}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center text-light-secondary dark:text-dark-secondary">
