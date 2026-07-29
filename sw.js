@@ -1,5 +1,5 @@
 // Service Worker for PWA
-const CACHE_NAME = 'kuran-meal-v2';
+const CACHE_NAME = 'kuran-meal-v3';
 const urlsToCache = [
   './',
   './index.html',
@@ -54,7 +54,9 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.method !== 'GET') return;
 
-  if (url.pathname.endsWith('.mp4')) return;
+  // Medya dosyalarını SW'den geçirme: Range (seek) istekleri cache ile bozulur
+  if (url.pathname.endsWith('.mp4') || url.pathname.endsWith('.m4a') || url.pathname.endsWith('.mp3')) return;
+  if (event.request.headers.get('range')) return;
 
   const isAppShell =
     event.request.mode === 'navigate' ||
