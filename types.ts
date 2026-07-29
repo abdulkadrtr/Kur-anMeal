@@ -28,3 +28,24 @@ export interface AudioState {
   duration: number; // in seconds
   currentTime: number; // in seconds
 }
+
+// public/recitations.json şeması (scripts/update_recitations.py üretir)
+export interface RecitationSegment {
+  ayahIndex: number; // meal.json'daki ayet kaydının sıra indeksi
+  a_no: string;      // ayet numarası ("84" veya "99 - 100" gibi birleşik)
+  startMs: number;
+  endMs: number;
+}
+
+export interface RecitationItem {
+  id: string;
+  youtubeUrl: string;
+  ytTitle: string;
+  reciter: string;
+  file: string;
+  durationSec: number;
+  title: string;
+  surahId?: number;
+  surahName?: string;
+  segments?: RecitationSegment[];
+}

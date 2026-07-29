@@ -13,6 +13,8 @@ dist-ssr
 *.local
 *.md
 
+scripts/.recitation_cache/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

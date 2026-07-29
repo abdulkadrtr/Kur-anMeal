@@ -2,9 +2,11 @@ import React from 'react';
 import { Surah, AyahSearchResult } from '../types';
 import { ARABIC_RUN_SOURCE } from '../utils';
 import { CheckCircle2, ArrowRight, BookOpen } from 'lucide-react';
+import RecitationsPanel from './RecitationsPanel';
 
 interface HomeViewProps {
   surahs: Surah[];
+  onOpenRecitation: (id: string) => void;
   onSelectSurah: (id: number) => void;
   isHatimMode: boolean;
   completedSurahs: number[];
@@ -62,6 +64,7 @@ const AYAH_RESULTS_PAGE_SIZE = 30;
 
 const HomeView: React.FC<HomeViewProps> = ({
   surahs,
+  onOpenRecitation,
   onSelectSurah,
   isHatimMode,
   completedSurahs,
@@ -105,6 +108,9 @@ const HomeView: React.FC<HomeViewProps> = ({
           </div>
         ) : (
           <>
+          {/* Özel Okuyuşlar — arama yokken sure listesinin üstünde */}
+          {!isSearching && <RecitationsPanel onOpenRecitation={onOpenRecitation} />}
+
           {/* Doğrudan Ayete Git ("bakara 12" gibi aramalarda) */}
           {directResult && (
             <div

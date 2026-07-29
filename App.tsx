@@ -7,10 +7,11 @@ import FavoritesView from './components/FavoritesView';
 import BookmarksView from './components/BookmarksView';
 import SettingsView from './components/SettingsView';
 import HatimView from './components/HatimView';
+import RecitationView from './components/RecitationView';
 import { SURAH_METADATA } from './constants';
 import { Surah, AyahSearchResult } from './types';
 
-type ViewState = 'home' | 'reader' | 'favorites' | 'bookmarks' | 'settings' | 'hatim';
+type ViewState = 'home' | 'reader' | 'favorites' | 'bookmarks' | 'settings' | 'hatim' | 'recitation';
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
 type ReciterType = 'husary' | 'alqatami' | 'dosari';
 type DisplayMode = 'both' | 'arabic' | 'turkish';
@@ -84,16 +85,18 @@ const App: React.FC = () => {
 
   const [pendingAutoPlay, setPendingAutoPlay] = useState<boolean>(false);
 
-  type NavSnapshot = { view: ViewState; surahId: number; ayahIndex: number; searchQuery: string };
+  const [currentRecitationId, setCurrentRecitationId] = useState<string | null>(null);
+
+  type NavSnapshot = { view: ViewState; surahId: number; ayahIndex: number; searchQuery: string; recitationId: string | null };
   const viewStackRef = React.useRef<NavSnapshot[]>([]);
-  const navStateRef = React.useRef<NavSnapshot>({ view: 'home', surahId: 1, ayahIndex: 0, searchQuery: '' });
+  const navStateRef = React.useRef<NavSnapshot>({ view: 'home', surahId: 1, ayahIndex: 0, searchQuery: '', recitationId: null });
   const atGuardRef = React.useRef<boolean>(false);
   const exitTimerRef = React.useRef<number | null>(null);
   const [showExitToast, setShowExitToast] = useState<boolean>(false);
 
   useEffect(() => {
-    navStateRef.current = { view: currentView, surahId: currentSurahId, ayahIndex: currentAyahIndex, searchQuery };
-  }, [currentView, currentSurahId, currentAyahIndex, searchQuery]);
+    navStateRef.current = { view: currentView, surahId: currentSurahId, ayahIndex: currentAyahIndex, searchQuery, recitationId: currentRecitationId };
+  }, [currentView, currentSurahId, currentAyahIndex, searchQuery, currentRecitationId]);
   
   // Favorites State: Array of strings "surahId:ayahId"
   const [favorites, setFavorites] = useState<string[]>(() => {
@@ -224,6 +227,7 @@ const App: React.FC = () => {
         setCurrentSurahId(prev.surahId);
         setCurrentAyahIndex(prev.ayahIndex);
         setSearchQuery(prev.searchQuery);
+        setCurrentRecitationId(prev.recitationId);
         setIsSidebarOpen(false);
         setIsMobileSearchOpen(false);
         window.history.pushState({ kuranMeal: 'top' }, '');
@@ -375,6 +379,16 @@ const App: React.FC = () => {
     }
   };
   
+  const handleOpenRecitation = (id: string) => {
+    const cur = navStateRef.current;
+    if (cur.view !== 'recitation' || cur.recitationId !== id) pushHistorySnapshot();
+    setCurrentRecitationId(id);
+    setCurrentView('recitation');
+    setSearchQuery("");
+    setIsMobileSearchOpen(false);
+    closeSidebar();
+  };
+
   const handleSelectSurah = (id: number) => {
     const cur = navStateRef.current;
     if (cur.view !== 'reader' || cur.surahId !== id) pushHistorySnapshot();
@@ -586,6 +600,7 @@ const App: React.FC = () => {
           {currentView === 'home' ? (
             <HomeView
               surahs={filteredSurahs}
+              onOpenRecitation={handleOpenRecitation}
               onSelectSurah={handleSelectSurah}
               isHatimMode={isHatimMode}
               completedSurahs={completedSurahs}
@@ -626,6 +641,11 @@ const App: React.FC = () => {
               onBackgroundThemeChange={handleBackgroundThemeChange}
               videoVolume={videoVolume}
               onVideoVolumeChange={setVideoVolume}
+            />
+          ) : currentView === 'recitation' && currentRecitationId ? (
+            <RecitationView
+              recitationId={currentRecitationId}
+              surahs={surahs}
             />
           ) : currentView === 'hatim' ? (
             <HatimView 
