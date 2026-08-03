@@ -73,16 +73,18 @@ const RecitationsPanel: React.FC<RecitationsPanelProps> = ({ onOpenRecitation })
                   {item.reciter} • {fmtTime(item.durationSec)}
                 </span>
               </span>
-              <a
-                href={item.youtubeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={e => e.stopPropagation()}
-                className="shrink-0 p-1.5 rounded-lg text-light-secondary dark:text-dark-secondary hover:text-red-500 transition-colors"
-                title="YouTube'da aç"
-              >
-                <Youtube size={16} />
-              </a>
+              {item.youtubeUrl && (
+                <a
+                  href={item.youtubeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="shrink-0 p-1.5 rounded-lg text-light-secondary dark:text-dark-secondary hover:text-red-500 transition-colors"
+                  title="YouTube'da aç"
+                >
+                  <Youtube size={16} />
+                </a>
+              )}
             </button>
           ))}
         </div>

@@ -94,7 +94,8 @@ def download(vid: str, url: str) -> dict:
     if not audio.exists():
         print(f"  ses indiriliyor…")
         # Her siteyle çalışır: en iyi sesi al, m4a değilse ffmpeg ile m4a'ya çevir.
-        run_ytdlp(["-f", "140/bestaudio[ext=m4a]/bestaudio/best",
+        # Not: TikTok'un bytevc1 (h265) dosyalarında ses izi fiilen yok; h264'ü tercih et.
+        run_ytdlp(["-f", "140/bestaudio[ext=m4a]/bestaudio/b[vcodec^=h264]/b",
                    "-x", "--audio-format", "m4a", "--audio-quality", "128K",
                    "-o", str(AUDIO_DIR / f"{vid}.%(ext)s"), url], check=True)
 
@@ -216,6 +217,42 @@ def main():
         url = parts[0]
         reciter = parts[1] if len(parts) > 1 and parts[1] else DEFAULT_RECITER
         title_override = parts[2] if len(parts) > 2 and parts[2] else None
+
+        # YEREL DOSYA: satır http ile başlamıyorsa dosya yolu kabul et.
+        # Dosya public/recitations/ içine kopyalanır; kaynak sonradan silinse de
+        # kopya durduğu sürece kayıt korunur. Ayet takibi yok (altyazı olmadığından).
+        if not url.startswith(("http://", "https://")):
+            src = Path(url).expanduser()
+            name = re.sub(r"[^\w.-]", "_", src.name)
+            dest = AUDIO_DIR / name
+            print(f"» {dest.stem} (yerel dosya)")
+            if not dest.exists():
+                if not src.exists():
+                    print(f"  ✗ Dosya bulunamadı, atlanıyor: {src}")
+                    continue
+                AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dest)
+            dur = 0
+            ffprobe = shutil.which("ffprobe") or "/home/abd/.local/bin/ffprobe"
+            try:
+                out = subprocess.run([ffprobe, "-v", "error", "-show_entries",
+                                      "format=duration", "-of", "csv=p=0", str(dest)],
+                                     capture_output=True, text=True, check=True).stdout
+                dur = round(float(out.strip()))
+            except Exception:
+                pass
+            items.append({
+                "id": dest.stem,
+                "youtubeUrl": "",
+                "ytTitle": src.name,
+                "reciter": reciter,
+                "file": f"./recitations/{name}",
+                "durationSec": dur,
+                "title": title_override or dest.stem,
+            })
+            print("  ~ yerel kayıt eklendi (sade oynatıcı)")
+            continue
+
         try:
             vid = video_id(url)
             print(f"» {vid}")

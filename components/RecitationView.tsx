@@ -1,12 +1,15 @@
 import React from 'react';
 import { Surah, RecitationItem } from '../types';
 import { formatTurkishText } from '../utils';
-import { Play, Pause, Repeat, Youtube } from 'lucide-react';
+import { Play, Pause, Repeat, Repeat1, SkipBack, SkipForward, Youtube } from 'lucide-react';
 
 interface RecitationViewProps {
   recitationId: string;
   surahs: Surah[];
 }
+
+// Tekrar modu: kapalı -> tek parça -> liste (bitince sıradakine geç, sonda başa dön)
+type RepeatMode = 'off' | 'one' | 'all';
 
 const fmtTime = (sec: number) => {
   if (!isFinite(sec) || sec < 0) return '0:00';
@@ -16,28 +19,50 @@ const fmtTime = (sec: number) => {
 };
 
 const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs }) => {
-  const [item, setItem] = React.useState<RecitationItem | null>(null);
+  const [items, setItems] = React.useState<RecitationItem[]>([]);
+  const [currentId, setCurrentId] = React.useState<string>(recitationId);
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
-  const [isLoop, setIsLoop] = React.useState<boolean>(() => {
-    const saved = localStorage.getItem('recitationLoop');
-    return saved ? JSON.parse(saved) : false;
+  const [repeatMode, setRepeatMode] = React.useState<RepeatMode>(() => {
+    const saved = localStorage.getItem('recitationRepeatMode');
+    return saved === 'one' || saved === 'all' ? saved : 'off';
   });
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const repeatModeRef = React.useRef<RepeatMode>(repeatMode);
 
-  // Döngü tercihini hatırla
+  // Tekrar tercihini hatırla
   React.useEffect(() => {
-    localStorage.setItem('recitationLoop', JSON.stringify(isLoop));
-  }, [isLoop]);
+    repeatModeRef.current = repeatMode;
+    localStorage.setItem('recitationRepeatMode', repeatMode);
+  }, [repeatMode]);
 
-  // Manifest'ten kaydı bul
+  // Dışarıdan farklı kayıt açılırsa ona geç
+  React.useEffect(() => {
+    setCurrentId(recitationId);
+  }, [recitationId]);
+
+  // Manifest'i yükle (parça listesi ileri/geri ve liste döngüsü için gerekli)
   React.useEffect(() => {
     fetch('./recitations.json')
       .then(r => (r.ok ? r.json() : Promise.reject()))
-      .then(d => setItem((d.items || []).find((i: RecitationItem) => i.id === recitationId) || null))
-      .catch(() => setItem(null));
-  }, [recitationId]);
+      .then(d => setItems(d.items || []))
+      .catch(() => setItems([]));
+  }, []);
+
+  const itemIndex = items.findIndex(i => i.id === currentId);
+  const item = itemIndex >= 0 ? items[itemIndex] : null;
+
+  // Önceki/sonraki parçaya geç (liste başı/sonunda diğer uca sarar)
+  const goToTrack = React.useCallback((dir: -1 | 1) => {
+    setCurrentId(prev => {
+      const list = items;
+      if (list.length === 0) return prev;
+      const idx = list.findIndex(i => i.id === prev);
+      const next = (idx + dir + list.length) % list.length;
+      return list[next].id;
+    });
+  }, [items]);
 
   // Kayıt yüklenince çalmayı başlat + kilit ekranı kontrollerini kur.
   // Not: Görselleştirici/WebAudio bilerek YOK — düz <audio> arka planda
@@ -72,13 +97,16 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
       navigator.mediaSession.setActionHandler('seekto', (d) => {
         if (d.seekTime != null) audio.currentTime = d.seekTime;
       });
+      // Kilit ekranından da parça değiştirme
+      navigator.mediaSession.setActionHandler('previoustrack', () => goToTrack(-1));
+      navigator.mediaSession.setActionHandler('nexttrack', () => goToTrack(1));
     }
 
     return () => {
       audio.pause();
       if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
     };
-  }, [item]);
+  }, [item, goToTrack]);
 
   // Aktif ayet: startMs <= şu an olan SON segment (geçişlerde metin titremesin)
   const currentSeg = React.useMemo(() => {
@@ -105,7 +133,9 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
     else audio.play().catch(() => {});
   };
 
-  const toggleLoop = () => setIsLoop(l => !l);
+  // kapalı -> tek parça -> liste -> kapalı
+  const cycleRepeatMode = () =>
+    setRepeatMode(m => (m === 'off' ? 'one' : m === 'one' ? 'all' : 'off'));
 
   if (!item) {
     return (
@@ -128,15 +158,17 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
               </h1>
               <p className="text-sm text-light-secondary dark:text-dark-secondary mt-1 flex items-center justify-center gap-2">
                 {item.reciter}
-                <a
-                  href={item.youtubeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex p-1 rounded text-light-secondary dark:text-dark-secondary hover:text-red-500 transition-colors"
-                  title="YouTube'da aç"
-                >
-                  <Youtube size={16} />
-                </a>
+                {item.youtubeUrl && (
+                  <a
+                    href={item.youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex p-1 rounded text-light-secondary dark:text-dark-secondary hover:text-red-500 transition-colors"
+                    title="YouTube'da aç"
+                  >
+                    <Youtube size={16} />
+                  </a>
+                )}
               </p>
             </div>
 
@@ -193,17 +225,30 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
             </span>
           </div>
           {/* Satır 2: kontroller */}
-          <div className="flex items-center justify-center gap-6">
+          <div className="flex items-center justify-center gap-4 md:gap-6">
             <button
-              onClick={toggleLoop}
+              onClick={cycleRepeatMode}
               className={`p-2.5 rounded-full transition-colors ${
-                isLoop
+                repeatMode !== 'off'
                   ? 'text-light-accent dark:text-dark-accent bg-light-accent/15 dark:bg-dark-accent/15'
                   : 'text-light-secondary dark:text-dark-secondary hover:text-light-text dark:hover:text-dark-text hover:bg-light-bg dark:hover:bg-dark-bg'
               }`}
-              title={isLoop ? 'Döngü açık — bitince başa döner' : 'Döngü kapalı'}
+              title={
+                repeatMode === 'one'
+                  ? 'Tek parça tekrarı — bitince aynı kayıt başa döner'
+                  : repeatMode === 'all'
+                  ? 'Liste tekrarı — bitince sıradaki kayda geçer'
+                  : 'Tekrar kapalı'
+              }
             >
-              <Repeat size={20} />
+              {repeatMode === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}
+            </button>
+            <button
+              onClick={() => goToTrack(-1)}
+              className="p-2.5 rounded-full text-light-secondary dark:text-dark-secondary hover:text-light-text dark:hover:text-dark-text hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"
+              title="Önceki kayıt"
+            >
+              <SkipBack size={22} />
             </button>
             <button
               onClick={togglePlay}
@@ -211,6 +256,13 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
               title={isPlaying ? 'Duraklat' : 'Oynat'}
             >
               {isPlaying ? <Pause size={26} /> : <Play size={26} className="ml-1" />}
+            </button>
+            <button
+              onClick={() => goToTrack(1)}
+              className="p-2.5 rounded-full text-light-secondary dark:text-dark-secondary hover:text-light-text dark:hover:text-dark-text hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"
+              title="Sonraki kayıt"
+            >
+              <SkipForward size={22} />
             </button>
             {/* simetri için görünmez eş öğe */}
             <span className="w-[41px]"></span>
@@ -221,10 +273,14 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
       <audio
         ref={audioRef}
         preload="auto"
-        loop={isLoop}
+        loop={repeatMode === 'one'}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={() => {
+          setIsPlaying(false);
+          // liste tekrarı: bitince sıradaki kayda geç (sonda başa sarar)
+          if (repeatModeRef.current === 'all') goToTrack(1);
+        }}
         onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
         onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
       />
