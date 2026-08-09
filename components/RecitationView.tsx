@@ -59,6 +59,43 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
   React.useEffect(() => { itemsRef.current = items; }, [items]);
   React.useEffect(() => { currentIdRef.current = currentId; }, [currentId]);
 
+  const artworkRef = React.useRef<string>('');
+  const getArtwork = () => {
+    if (artworkRef.current === '') {
+      try {
+        const c = document.createElement('canvas');
+        c.width = c.height = 512;
+        const g = c.getContext('2d')!;
+        g.fillStyle = '#1A1D23';
+        g.fillRect(0, 0, 512, 512);
+        g.fillStyle = '#D4AF37';
+        g.beginPath();
+        g.arc(256, 256, 190, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#1A1D23';
+        g.font = 'bold 220px Arial';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText('ا', 256, 276);
+        artworkRef.current = c.toDataURL('image/png');
+      } catch {
+        artworkRef.current = ' '; // üretilemedi: bir daha deneme, ikonsuz devam
+      }
+    }
+    return artworkRef.current.trim();
+  };
+
+  const updateMediaMetadata = React.useCallback((it: RecitationItem) => {
+    if (!('mediaSession' in navigator)) return;
+    const art = getArtwork();
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: it.title,
+      artist: it.reciter,
+      album: "Kur'an Meal — Özel Okuyuşlar",
+      ...(art ? { artwork: [{ src: art, sizes: '512x512', type: 'image/png' }] } : {}),
+    });
+  }, []);
+
   const startTrack = React.useCallback((it: RecitationItem) => {
     const audio = audioRef.current;
     if (!audio || !it) return;
@@ -66,7 +103,22 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
       audio.dataset.itemId = it.id;
       audio.src = it.file;
     }
+    updateMediaMetadata(it); // geçişle aynı çağrı yığınında
     audio.play().catch(() => {});
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+  }, [updateMediaMetadata]);
+
+  const syncPositionState = React.useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || !('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession)) return;
+    if (!isFinite(audio.duration) || audio.duration <= 0) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: audio.duration,
+        playbackRate: audio.playbackRate,
+        position: Math.min(audio.currentTime, audio.duration),
+      });
+    } catch { }
   }, []);
 
   // Önceki/sonraki parçaya geç (liste başı/sonunda diğer uca sarar)
@@ -87,20 +139,9 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
   React.useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !item) return;
-    startTrack(item);
+    startTrack(item); // metadata güncellemesi de startTrack içinde
 
     if ('mediaSession' in navigator) {
-      // Kilit ekranı / bildirim kartı (müzik çalar gibi): başlık + okuyucu + ikon
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: item.title,
-        artist: item.reciter,
-        album: "Kur'an Meal — Özel Okuyuşlar",
-        artwork: [{
-          src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%231A1D23'/><circle cx='256' cy='256' r='190' fill='%23D4AF37'/><text x='256' y='350' font-family='Arial' font-size='220' fill='%231A1D23' text-anchor='middle' font-weight='bold'>ا</text></svg>",
-          sizes: '512x512',
-          type: 'image/svg+xml',
-        }],
-      });
       navigator.mediaSession.setActionHandler('play', () => audio.play());
       navigator.mediaSession.setActionHandler('pause', () => audio.pause());
       navigator.mediaSession.setActionHandler('seekbackward', () => {
@@ -314,7 +355,11 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
           }
         }}
         onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
-        onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
+        onLoadedMetadata={e => {
+          setDuration(e.currentTarget.duration);
+          syncPositionState();
+        }}
+        onSeeked={syncPositionState}
       />
     </main>
   );
