@@ -53,16 +53,32 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
   const itemIndex = items.findIndex(i => i.id === currentId);
   const item = itemIndex >= 0 ? items[itemIndex] : null;
 
+  const itemsRef = React.useRef(items);
+  const currentIdRef = React.useRef(currentId);
+  const errorRunRef = React.useRef(0); // arka arkaya hata sayacı (sonsuz atlama kilidi)
+  React.useEffect(() => { itemsRef.current = items; }, [items]);
+  React.useEffect(() => { currentIdRef.current = currentId; }, [currentId]);
+
+  const startTrack = React.useCallback((it: RecitationItem) => {
+    const audio = audioRef.current;
+    if (!audio || !it) return;
+    if (audio.dataset.itemId !== it.id) {
+      audio.dataset.itemId = it.id;
+      audio.src = it.file;
+    }
+    audio.play().catch(() => {});
+  }, []);
+
   // Önceki/sonraki parçaya geç (liste başı/sonunda diğer uca sarar)
   const goToTrack = React.useCallback((dir: -1 | 1) => {
-    setCurrentId(prev => {
-      const list = items;
-      if (list.length === 0) return prev;
-      const idx = list.findIndex(i => i.id === prev);
-      const next = (idx + dir + list.length) % list.length;
-      return list[next].id;
-    });
-  }, [items]);
+    const list = itemsRef.current;
+    if (list.length === 0) return;
+    const idx = list.findIndex(i => i.id === currentIdRef.current);
+    const next = list[(idx + dir + list.length) % list.length];
+    currentIdRef.current = next.id; // olay içinde art arda çağrılara karşı hemen güncelle
+    startTrack(next);               // sesi senkron başlat
+    setCurrentId(next.id);          // UI'yı güncelle
+  }, [startTrack]);
 
   // Kayıt yüklenince çalmayı başlat + kilit ekranı kontrollerini kur.
   // Not: Görselleştirici/WebAudio bilerek YOK — düz <audio> arka planda
@@ -71,8 +87,7 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
   React.useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !item) return;
-    audio.src = item.file;
-    audio.play().catch(() => {}); // autoplay engellenirse kullanıcı butona basar
+    startTrack(item);
 
     if ('mediaSession' in navigator) {
       // Kilit ekranı / bildirim kartı (müzik çalar gibi): başlık + okuyucu + ikon
@@ -101,12 +116,14 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
       navigator.mediaSession.setActionHandler('previoustrack', () => goToTrack(-1));
       navigator.mediaSession.setActionHandler('nexttrack', () => goToTrack(1));
     }
+  }, [item, startTrack, goToTrack]);
 
+  React.useEffect(() => {
     return () => {
-      audio.pause();
+      audioRef.current?.pause();
       if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
     };
-  }, [item, goToTrack]);
+  }, []);
 
   // Aktif ayet: startMs <= şu an olan SON segment (geçişlerde metin titremesin)
   const currentSeg = React.useMemo(() => {
@@ -274,12 +291,27 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
         ref={audioRef}
         preload="auto"
         loop={repeatMode === 'one'}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
+        onPlay={() => {
+          setIsPlaying(true);
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+        }}
+        onPlaying={() => { errorRunRef.current = 0; }}
+        onPause={() => {
+          setIsPlaying(false);
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+        }}
         onEnded={() => {
           setIsPlaying(false);
-          // liste tekrarı: bitince sıradaki kayda geç (sonda başa sarar)
+          // liste tekrarı: sıradaki kayda AYNI olay içinde senkron geç
           if (repeatModeRef.current === 'all') goToTrack(1);
+        }}
+        onError={() => {
+          setIsPlaying(false);
+          const n = itemsRef.current.length;
+          if (repeatModeRef.current === 'all' && n > 0 && errorRunRef.current < n) {
+            errorRunRef.current += 1;
+            goToTrack(1);
+          }
         }}
         onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
         onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
