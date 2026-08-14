@@ -1,7 +1,7 @@
 import React from 'react';
 import { Surah } from '../types';
 import { BISMILLAH } from '../constants';
-import { formatTurkishText } from '../utils';
+import { formatTurkishText, makeArtworkPng } from '../utils';
 import { Copy, ChevronLeft, ChevronRight, Heart, Check, Bookmark, Share2, Play, Pause, PlayCircle, StopCircle } from 'lucide-react';
 
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
@@ -22,7 +22,9 @@ interface SurahViewProps {
   displayMode: DisplayMode;
   arabicFontSize: FontSize;
   turkishFontSize: FontSize;
-  backgroundVideoRef: React.RefObject<HTMLVideoElement>;
+  onAmbientStart: () => void;
+  onAmbientStop: () => void;
+  nextSurah?: { id: number; name: string; firstAyahParts: number[] };
   onAutoPlayNextSurah?: () => void;
   autoPlayPending?: boolean;
   onAutoPlayPendingConsumed?: () => void;
@@ -41,7 +43,9 @@ const SurahView: React.FC<SurahViewProps> = ({
   displayMode,
   arabicFontSize,
   turkishFontSize,
-  backgroundVideoRef,
+  onAmbientStart,
+  onAmbientStop,
+  nextSurah,
   onAutoPlayNextSurah,
   autoPlayPending,
   onAutoPlayPendingConsumed
@@ -51,17 +55,36 @@ const SurahView: React.FC<SurahViewProps> = ({
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentPlayingIndex, setCurrentPlayingIndex] = React.useState<number | null>(null);
   const [isAutoPlaying, setIsAutoPlaying] = React.useState(false);
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
-  const nextAudioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  // --- SES MOTORU (arka plan uyumlu) -------------------------------------
+  // WebAudio + setTimeout tabanlı eski motor kilitli ekranda ölüyordu:
+  // zamanlayıcılar kısılır, WebAudio bildirim kartı üretmez. Yeni motor tek
+  // <audio> elemanı + 'ended' olayı zinciri kullanır (olaylar kısılmaz),
+  // sıradaki parçaları blob olarak ÖNCEDEN indirir (geçişte ağ = sıfır) ve
+  // Media Session ile kilit ekranı kartı kurar.
+  type QueueEntry = { url: string; ayahIndex: number };
+  // Çift eleman (ping-pong): sıradaki parça yedek elemana ÖNCEDEN yüklenir,
+  // 'ended' anında hazır elemana geçilir -> ayetler arası boşluk ~0.
+  const elsRef = React.useRef<(HTMLAudioElement | null)[]>([null, null]);
+  const activeIdxRef = React.useRef(0);
+  const queueRef = React.useRef<QueueEntry[]>([]);
+  const queuePosRef = React.useRef(0);
+  const modeRef = React.useRef<'idle' | 'single' | 'auto'>('idle');
+  const engineSurahIdRef = React.useRef<number | null>(null);
+  const blobMapRef = React.useRef<Map<string, string>>(new Map()); // url -> blobURL ('' = yükleniyor)
+  const wantPlayingRef = React.useRef(false);
+  const errorRunRef = React.useRef(0);
   const isAutoPlayingRef = React.useRef<boolean>(false);
-  const audioBufferRef = React.useRef<Map<string, HTMLAudioElement>>(new Map());
-  const audioContextRef = React.useRef<AudioContext | null>(null);
-  const decodedBuffersRef = React.useRef<Map<string, AudioBuffer>>(new Map());
-  const currentSourceRef = React.useRef<AudioBufferSourceNode | null>(null);
-  const nextSourceRef = React.useRef<AudioBufferSourceNode | null>(null);
-  const scheduledTimeRef = React.useRef<number>(0);
-  const allScheduledSourcesRef = React.useRef<AudioBufferSourceNode[]>([]);
-  const scheduledTimeoutsRef = React.useRef<NodeJS.Timeout[]>([]);
+  const onEndedRef = React.useRef<() => void>(() => {});
+  const onErrorRef = React.useRef<() => void>(() => {});
+  const onEarlyRef = React.useRef<() => void>(() => {});
+  const surahRef = React.useRef(surah);
+  const nextSurahRef = React.useRef(nextSurah);
+  const navModeRef = React.useRef(navigationMode);
+  React.useEffect(() => { surahRef.current = surah; }, [surah]);
+  React.useEffect(() => { nextSurahRef.current = nextSurah; }, [nextSurah]);
+  React.useEffect(() => { navModeRef.current = navigationMode; }, [navigationMode]);
+
   const cardRef = React.useRef<HTMLDivElement>(null);
   const cardRefs = React.useRef<(HTMLDivElement | null)[]>([]);
   const touchStartX = React.useRef<number>(0);
@@ -80,62 +103,50 @@ const SurahView: React.FC<SurahViewProps> = ({
     cardRefs.current = cardRefs.current.slice(0, surah.ayahs.length);
   }, [surah.ayahs.length]);
 
-  // Sure değiştiğinde preload edilen sesi temizle
+  // Sure değişince motoru durdur — TEK İSTİSNA: otomatik akış sure sınırını
+  // kendisi geçtiyse (engineSurahId zaten yeni sureyi gösterir) durdurma.
   React.useEffect(() => {
-    // Video sesini kapat
-    if (backgroundVideoRef.current) {
-      backgroundVideoRef.current.muted = true;
-    }
-    
-    // Tüm scheduled sesleri durdur
-    allScheduledSourcesRef.current.forEach(source => {
-      try {
-        source.stop();
-      } catch (e) {
-        // Zaten durmuş olabilir
-      }
-    });
-    allScheduledSourcesRef.current = [];
-    
-    // Tüm timeout'ları temizle
-    scheduledTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
-    scheduledTimeoutsRef.current = [];
-    
-    if (nextAudioRef.current) {
-      nextAudioRef.current = null;
-    }
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    // Buffer'ı temizle
-    audioBufferRef.current.clear();
-    decodedBuffersRef.current.clear();
-    if (currentSourceRef.current) {
-      try {
-        currentSourceRef.current.stop();
-      } catch (e) {}
-      currentSourceRef.current = null;
-    }
-    setIsPlaying(false);
-    setCurrentPlayingIndex(null);
-    setIsAutoPlaying(false);
-    isAutoPlayingRef.current = false;
+    if (modeRef.current === 'auto' && engineSurahIdRef.current === surah.id) return;
+    stopEngine();
   }, [surah.id]);
 
-  // AudioContext'i başlat
   React.useEffect(() => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (autoPlayPending) {
-      onAutoPlayPendingConsumed?.();
+    if (!autoPlayPending) return;
+    onAutoPlayPendingConsumed?.();
+    const el = elsRef.current[activeIdxRef.current];
+    if (modeRef.current === 'auto' && engineSurahIdRef.current === surah.id && el && el.dataset.url) {
+      // Sure sınırı 'ended' olayında senkron geçildi ve ilk ayet zaten çalıyor:
+      // kuyruğu bu surenin tam listesiyle yeniden kur, konumu koru.
+      const full = buildQueue(surah, 0);
+      const pos = full.findIndex(e => e.url === el.dataset.url);
+      queueRef.current = full;
+      queuePosRef.current = Math.max(0, pos);
+      prefetchAhead();
+    } else {
       startAutoPlay(0);
     }
   }, [surah.id, autoPlayPending]);
+
+  // Sigorta: play() arka planda yine de bloke olduysa ekran açılınca devam et.
+  // Unmount'ta motoru tamamen kapat.
+  React.useEffect(() => {
+    const onVisible = () => {
+      const el = elsRef.current[activeIdxRef.current];
+      if (document.visibilityState === 'visible' && el && wantPlayingRef.current && el.paused) {
+        el.play().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      wantPlayingRef.current = false;
+      elsRef.current.forEach(e => e?.pause());
+      blobMapRef.current.forEach(u => { if (u) URL.revokeObjectURL(u); });
+      blobMapRef.current.clear();
+      onAmbientStop();
+      if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
+    };
+  }, []);
 
   // Sürekli modda ayet değiştiğinde scroll yap (sadece programatik değişikliklerde)
   React.useEffect(() => {
@@ -232,347 +243,283 @@ const SurahView: React.FC<SurahViewProps> = ({
     return [parseInt(numStr)];
   };
 
-  // Tek bir ayet için ses çal (basit versiyon)
-  const playAyahAudio = (ayahIndex: number, onComplete: () => void) => {
-    // Video sesini aç
-    if (backgroundVideoRef.current) {
-      backgroundVideoRef.current.muted = false;
-    }
+  // ---------------- SES MOTORU ----------------
+  const RECITER_NAMES: Record<ReciterType, string> = {
+    husary: 'Mahmud Halil el-Husarî',
+    alqatami: 'Nasser Al Qatami',
+    dosari: 'Yasser Al-Dosari',
+  };
 
-    const ayah = surah.ayahs[ayahIndex];
-    const ayahNumbers = getAyahNumbers(ayah.numberInSurah);
-    let currentIdx = 0;
-
-    const playNext = () => {
-      if (currentIdx >= ayahNumbers.length) {
-        onComplete();
-        return;
-      }
-
-      const audioUrl = getAudioUrl(surah.id, ayahNumbers[currentIdx]);
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      audio.onended = () => {
-        currentIdx++;
-        playNext();
-      };
-
-      audio.onerror = () => {
-        console.error('Ses yükleme hatası');
-        // Video sesini kapat
-        if (backgroundVideoRef.current) {
-          backgroundVideoRef.current.muted = true;
-        }
-        setIsPlaying(false);
-        setCurrentPlayingIndex(null);
-        setIsAutoPlaying(false);
-        isAutoPlayingRef.current = false;
-      };
-
-      audio.play().catch((err) => {
-        console.error('Ses çalma hatası:', err);
-        // Video sesini kapat
-        if (backgroundVideoRef.current) {
-          backgroundVideoRef.current.muted = true;
-        }
-        setIsPlaying(false);
-        setCurrentPlayingIndex(null);
-        setIsAutoPlaying(false);
-        isAutoPlayingRef.current = false;
+  // İki ses elemanı; dinleyiciler BİR KEZ bağlanır ve yalnızca AKTİF
+  // elemandan gelen olaylar işlenir (yedek elemanın yükleme olayları karışmaz).
+  const getEl = (i: number): HTMLAudioElement => {
+    if (!elsRef.current[i]) {
+      const el = new Audio();
+      el.preload = 'auto';
+      const isActive = () => el === elsRef.current[activeIdxRef.current];
+      el.addEventListener('ended', () => { if (isActive()) onEndedRef.current(); });
+      el.addEventListener('error', () => { if (isActive()) onErrorRef.current(); });
+      el.addEventListener('playing', () => { if (isActive()) errorRunRef.current = 0; });
+      el.addEventListener('play', () => { if (isActive()) setIsPlaying(true); });
+      el.addEventListener('pause', () => { if (isActive()) setIsPlaying(false); });
+      // ERKEN GEÇİŞ: dosyanın son ~250ms'i (sessizlik payı) kala, hazır bekleyen
+      // yedek elemanı başlat -> geçiş kulağa tamamen kesintisiz gelir.
+      // Arka planda timeupdate seyrekleşirse 'ended' yolu yedek olarak devrededir.
+      el.addEventListener('timeupdate', () => {
+        if (!isActive() || modeRef.current === 'idle') return;
+        const d = el.duration;
+        if (!isFinite(d) || d <= 0 || d - el.currentTime > 0.25) return;
+        onEarlyRef.current();
       });
-    };
+      elsRef.current[i] = el;
+    }
+    return elsRef.current[i]!;
+  };
+  const activeEl = () => getEl(activeIdxRef.current);
+  const standbyEl = () => getEl(1 - activeIdxRef.current);
 
-    playNext();
+  // Sıradaki parçayı YEDEK elemana tam olarak yükle: 'ended' geldiğinde
+  // decode edilmiş, çalmaya hazır bekler -> geçiş boşluğu duyulmaz.
+  const prepareStandby = () => {
+    const q = queueRef.current;
+    const pos = queuePosRef.current;
+    let url: string | null = q[pos + 1]?.url ?? null;
+    if (!url && modeRef.current === 'auto') {
+      const ns = nextSurahRef.current;
+      if (ns) url = getAudioUrl(ns.id, ns.firstAyahParts[0]);
+    }
+    if (!url) return;
+    const sb = standbyEl();
+    if (sb.dataset.url === url) return;
+    sb.dataset.url = url;
+    sb.src = blobMapRef.current.get(url) || url;
+    try { sb.load(); } catch { /* önemsiz */ }
+  };
+
+  const buildQueue = (s: Surah, fromIndex: number): QueueEntry[] => {
+    const q: QueueEntry[] = [];
+    for (let i = fromIndex; i < s.ayahs.length; i++) {
+      for (const n of getAyahNumbers(s.ayahs[i].numberInSurah)) {
+        q.push({ url: getAudioUrl(s.id, n), ayahIndex: i });
+      }
+    }
+    return q;
+  };
+
+  const prefetchUrl = (url: string) => {
+    if (blobMapRef.current.has(url)) return;
+    blobMapRef.current.set(url, ''); // yükleniyor işareti
+    fetch(url)
+      .then(r => (r.ok ? r.blob() : Promise.reject()))
+      .then(b => blobMapRef.current.set(url, URL.createObjectURL(b)))
+      .catch(() => blobMapRef.current.delete(url));
+  };
+
+  // Sıradaki 3 parçayı blob olarak hazırla; kuyruk bitmek üzereyse sıradaki
+  // surenin ilk ayetini de hazırla. Geçiş anında ağ trafiği sıfır olur —
+  // kilitli telefonda zincirin kopmamasının anahtarı bu.
+  const prefetchAhead = () => {
+    const q = queueRef.current;
+    const pos = queuePosRef.current;
+    for (let i = pos + 1; i <= pos + 3 && i < q.length; i++) prefetchUrl(q[i].url);
+    const ns = nextSurahRef.current;
+    if (modeRef.current === 'auto' && ns && q.length - pos <= 2) {
+      ns.firstAyahParts.forEach(n => prefetchUrl(getAudioUrl(ns.id, n)));
+    }
+    // geride kalan blob'ları bırak
+    for (let i = 0; i < pos - 1; i++) {
+      const url = q[i]?.url;
+      if (!url) continue;
+      const b = blobMapRef.current.get(url);
+      if (b) { URL.revokeObjectURL(b); blobMapRef.current.delete(url); }
+    }
+  };
+
+  const updateMediaMeta = (titleText: string) => {
+    if (!('mediaSession' in navigator)) return;
+    const art = makeArtworkPng();
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: titleText,
+      artist: RECITER_NAMES[reciter],
+      album: "Kur'an Meal",
+      ...(art ? { artwork: [{ src: art, sizes: '512x512', type: 'image/png' }] } : {}),
+    });
+    navigator.mediaSession.playbackState = 'playing';
+  };
+
+  const setupMediaSessionHandlers = () => {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.setActionHandler('play', () => {
+      wantPlayingRef.current = true;
+      activeEl().play().catch(() => {});
+      onAmbientStart();
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      wantPlayingRef.current = false;
+      activeEl().pause();
+      onAmbientStop();
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => jumpAyah(1));
+    navigator.mediaSession.setActionHandler('previoustrack', () => jumpAyah(-1));
+  };
+
+  // Kuyruktaki parçayı başlat. Geçişlerde 'ended' olayının İÇİNDEN senkron
+  // çağrılır — mobil arka planda yeni play() izninin korunması bunu gerektirir.
+  const startQueueEntry = (pos: number, titleOverride?: string, keepPrev = false) => {
+    const q = queueRef.current;
+    const entry = q[pos];
+    if (!entry) return;
+    queuePosRef.current = pos;
+
+    const prev = activeEl();
+    const sb = standbyEl();
+    let el: HTMLAudioElement;
+    if (sb.dataset.url === entry.url) {
+      // Yedek eleman bu parçayla hazır: boşluksuz geçiş
+      activeIdxRef.current = 1 - activeIdxRef.current;
+      el = sb;
+      // erken geçişte önceki eleman kalan ~250ms sessizliğini çalıp kendi biter
+      if (!keepPrev && !prev.paused) prev.pause();
+    } else {
+      el = prev;
+      const blob = blobMapRef.current.get(entry.url);
+      el.dataset.url = entry.url;
+      el.src = blob || entry.url;
+    }
+    try { if (el.currentTime > 0.05) el.currentTime = 0; } catch { /* metadata henüz yoksa sorun değil */ }
+    wantPlayingRef.current = true;
+    el.play().catch(() => {});
+
+    const s = surahRef.current;
+    const a = s.ayahs[entry.ayahIndex];
+    updateMediaMeta(titleOverride ?? `${s.nameTurkish} — ${a ? a.numberInSurah : ''}. Ayet`);
+
+    setCurrentPlayingIndex(entry.ayahIndex);
+    onAyahChange(entry.ayahIndex);
+    if (navModeRef.current === 'scroll') {
+      const card = cardRefs.current[entry.ayahIndex];
+      if (card) {
+        isAutoScrolling.current = true;
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => { isAutoScrolling.current = false; }, 500);
+      }
+    }
+    prepareStandby();
+    prefetchAhead();
+  };
+
+  const stopEngine = () => {
+    modeRef.current = 'idle';
+    wantPlayingRef.current = false;
+    elsRef.current.forEach(e => { if (e) { e.pause(); e.dataset.url = ''; } });
+    blobMapRef.current.forEach(u => { if (u) URL.revokeObjectURL(u); });
+    blobMapRef.current.clear();
+    queueRef.current = [];
+    queuePosRef.current = 0;
+    errorRunRef.current = 0;
+    setIsPlaying(false);
+    setCurrentPlayingIndex(null);
+    setIsAutoPlaying(false);
+    isAutoPlayingRef.current = false;
+    onAmbientStop();
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
+  };
+
+  // 'ended' olayı: kuyrukta ilerle; kuyruk bittiyse moda göre dur ya da
+  // sıradaki sureye AYNI olay içinde senkron geç.
+  const advanceQueue = () => {
+    if (modeRef.current === 'idle') return;
+    const nextPos = queuePosRef.current + 1;
+    if (nextPos < queueRef.current.length) {
+      startQueueEntry(nextPos);
+      return;
+    }
+    if (modeRef.current === 'single') { stopEngine(); return; }
+    const ns = nextSurahRef.current;
+    if (!ns) { stopEngine(); return; } // son sure bitti
+    engineSurahIdRef.current = ns.id;
+    queueRef.current = ns.firstAyahParts.map(n => ({ url: getAudioUrl(ns.id, n), ayahIndex: 0 }));
+    startQueueEntry(0, `${ns.name} — 1. Ayet`);
+    onAutoPlayNextSurah?.(); // React yeni sureyi yüklesin; kuyruk efektte tamamlanır
+  };
+
+  const handleAudioError = () => {
+    if (modeRef.current === 'idle') return;
+    errorRunRef.current += 1;
+    if (errorRunRef.current > 5) { stopEngine(); return; } // art arda 5 hata: dur
+    advanceQueue(); // bozuk/yüklenemeyen parçayı atla
+  };
+
+  // Erken geçiş: sıradaki parça yedekte HAZIRSA sesi şimdi başlat.
+  // Hazır değilse hiçbir şey yapma - normal 'ended' yolu devreye girer.
+  const earlyAdvance = () => {
+    const q = queueRef.current;
+    const pos = queuePosRef.current;
+    const next = q[pos + 1];
+    const sb = elsRef.current[1 - activeIdxRef.current];
+    if (!next || !sb || sb.dataset.url !== next.url || sb.readyState < 3) return;
+    startQueueEntry(pos + 1, undefined, true);
+  };
+
+  // Olay dinleyicileri her render'da güncel fonksiyonlara bağlansın
+  onEndedRef.current = advanceQueue;
+  onErrorRef.current = handleAudioError;
+  onEarlyRef.current = earlyAdvance;
+
+  // Kilit ekranından ayet atlama: kuyrukta bir sonraki/önceki FARKLI ayete git
+  const jumpAyah = (dir: -1 | 1) => {
+    const q = queueRef.current;
+    let pos = queuePosRef.current;
+    if (!q.length) return;
+    const curIdx = q[pos]?.ayahIndex ?? 0;
+    if (dir === 1) {
+      while (pos < q.length && q[pos].ayahIndex === curIdx) pos++;
+      if (pos >= q.length) return;
+    } else {
+      while (pos > 0 && q[pos].ayahIndex === curIdx) pos--;
+      const prevIdx = q[pos].ayahIndex;
+      if (prevIdx === curIdx) return;
+      while (pos > 0 && q[pos - 1].ayahIndex === prevIdx) pos--;
+    }
+    startQueueEntry(pos);
+  };
+
+  const startAutoPlay = (fromIndex: number) => {
+    onAmbientStart();
+    modeRef.current = 'auto';
+    engineSurahIdRef.current = surah.id;
+    isAutoPlayingRef.current = true;
+    setIsAutoPlaying(true);
+    errorRunRef.current = 0;
+    queueRef.current = buildQueue(surah, fromIndex);
+    setupMediaSessionHandlers();
+    startQueueEntry(0);
+  };
+
+  // Otomatik oynatmayı başlat/durdur
+  const toggleAutoPlay = () => {
+    if (isAutoPlaying) stopEngine();
+    else startAutoPlay(safeIndex);
   };
 
   // Ses çalma/durdurma (manuel tek ayet)
   const handlePlayAudio = (index: number) => {
-    // Aynı ayete tekrar basılırsa durdur
+    // Çalan ayete tekrar basılırsa DURDUR (otomatik modda da geçerli)
     if (currentPlayingIndex === index && isPlaying) {
-      audioRef.current?.pause();
-      // Video sesini kapat
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.muted = true;
-      }
-      setIsPlaying(false);
-      setCurrentPlayingIndex(null);
+      stopEngine();
       return;
     }
-
-    // Önceki sesi durdur
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-
-    setCurrentPlayingIndex(index);
-    setIsPlaying(true);
-
-    playAyahAudio(index, () => {
-      // Video sesini kapat
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.muted = true;
-      }
-      setIsPlaying(false);
-      setCurrentPlayingIndex(null);
-    });
+    onAmbientStart();
+    modeRef.current = 'single';
+    engineSurahIdRef.current = surah.id;
+    isAutoPlayingRef.current = false;
+    setIsAutoPlaying(false);
+    errorRunRef.current = 0;
+    const parts = getAyahNumbers(surah.ayahs[index].numberInSurah);
+    queueRef.current = parts.map(n => ({ url: getAudioUrl(surah.id, n), ayahIndex: index }));
+    setupMediaSessionHandlers();
+    startQueueEntry(0);
   };
-
-  // Ses dosyasını fetch edip decode et (Web Audio API)
-  const fetchAndDecodeAudio = async (surahNumber: number, ayahNumber: number): Promise<AudioBuffer | null> => {
-    const url = getAudioUrl(surahNumber, ayahNumber);
-    
-    // Zaten decode edilmişse onu döndür
-    if (decodedBuffersRef.current.has(url)) {
-      return decodedBuffersRef.current.get(url)!;
-    }
-    
-    try {
-      const response = await fetch(url);
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await audioContextRef.current!.decodeAudioData(arrayBuffer);
-      decodedBuffersRef.current.set(url, audioBuffer);
-      return audioBuffer;
-    } catch (error) {
-      console.error('Ses decode hatası:', error);
-      return null;
-    }
-  };
-
-  // Birden fazla ayeti önceden decode et
-  const preloadAndDecodeMultiple = async (startIndex: number, count: number = 3) => {
-    const promises: Promise<AudioBuffer | null>[] = [];
-    
-    for (let i = 0; i < count; i++) {
-      const index = startIndex + i;
-      if (index >= surah.ayahs.length) break;
-      
-      const ayah = surah.ayahs[index];
-      const ayahNumbers = getAyahNumbers(ayah.numberInSurah);
-      
-      // Her ayet parçasını decode et
-      ayahNumbers.forEach(num => {
-        promises.push(fetchAndDecodeAudio(surah.id, num));
-      });
-    }
-    
-    // Tüm sesleri paralel yükle
-    await Promise.all(promises);
-  };
-
-  // Web Audio API ile seamless çalma - TAMAMEN KESİNTİSİZ
-  const playAudioBufferSeamless = (
-    audioBuffer: AudioBuffer, 
-    startTime: number
-  ): { source: AudioBufferSourceNode; endTime: number } => {
-    if (!audioContextRef.current) return null as any;
-    
-    const source = audioContextRef.current.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioContextRef.current.destination);
-    
-    // Tam zamanında başlat (önceki ses bittiği anda)
-    source.start(startTime);
-    
-    // Scheduled sources listesine ekle (durdurma için)
-    allScheduledSourcesRef.current.push(source);
-    
-    // Bu sesin biteceği zamanı hesapla
-    const endTime = startTime + audioBuffer.duration;
-    
-    return { source, endTime };
-  };
-
-  // Otomatik oynatma için recursive fonksiyon - TAMAMEN SEAMLESS + SENKRON
-  const playAutoSequenceSeamless = async (startIndex: number, currentTime: number = 0) => {
-    // Durdurulmuşsa çık
-    if (!isAutoPlayingRef.current) {
-      // Video sesini kapat
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.muted = true;
-      }
-      setIsPlaying(false);
-      setCurrentPlayingIndex(null);
-      return;
-    }
-
-    // Sure bittiyse sıradaki sureye geç (yoksa dur)
-    if (startIndex >= surah.ayahs.length) {
-      // Video sesini kapat
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.muted = true;
-      }
-      setIsPlaying(false);
-      setCurrentPlayingIndex(null);
-      setIsAutoPlaying(false);
-      isAutoPlayingRef.current = false;
-
-      if (onAutoPlayNextSurah) {
-        const timeout = setTimeout(() => onAutoPlayNextSurah(), 250);
-        scheduledTimeoutsRef.current.push(timeout);
-      }
-      return;
-    }
-
-    // Sonraki 5 ayeti önceden decode et (arka planda)
-    preloadAndDecodeMultiple(startIndex + 1, 5);
-
-    // Ayeti değiştir ve ekranda göster - HEMEN
-    onAyahChange(startIndex);
-    setCurrentPlayingIndex(startIndex);
-    setIsPlaying(true);
-
-    // Sürekli modda scroll yap
-    if (navigationMode === 'scroll') {
-      isAutoScrolling.current = true;
-      const targetCard = cardRefs.current[startIndex];
-      if (targetCard) {
-        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      setTimeout(() => {
-        isAutoScrolling.current = false;
-      }, 500);
-    }
-
-    const ayah = surah.ayahs[startIndex];
-    const ayahNumbers = getAyahNumbers(ayah.numberInSurah);
-    
-    // Tüm ayet parçalarını decode et
-    const audioBuffers: AudioBuffer[] = [];
-    for (const num of ayahNumbers) {
-      const buffer = await fetchAndDecodeAudio(surah.id, num);
-      if (!buffer) {
-        console.error('Ses yüklenemedi');
-        setIsPlaying(false);
-        setCurrentPlayingIndex(null);
-        setIsAutoPlaying(false);
-        isAutoPlayingRef.current = false;
-        return;
-      }
-      audioBuffers.push(buffer);
-    }
-
-    // Başlangıç zamanını belirle
-    let scheduleTime = currentTime === 0 
-      ? audioContextRef.current!.currentTime 
-      : currentTime;
-
-    // Tüm parçaları PEŞPEŞE schedule et (hiç boşluk bırakmadan)
-    for (const buffer of audioBuffers) {
-      const { source, endTime } = playAudioBufferSeamless(buffer, scheduleTime);
-      scheduleTime = endTime; // Bir sonraki ses tam bu sesin bittiği anda başlasın
-    }
-
-    // Bu ayetin toplam süresi
-    const totalDuration = audioBuffers.reduce((sum, buf) => sum + buf.duration, 0);
-    
-    // Ayetin BİTMESİNDEN HEMEN ÖNCE sonraki ayete geç (senkronizasyon için)
-    // Ses bitmeden 50ms önce UI'ı güncelle
-    const uiUpdateDelay = Math.max(0, (totalDuration - 0.05) * 1000);
-    
-    const timeout = setTimeout(() => {
-      if (isAutoPlayingRef.current) {
-        // Sonraki ayeti başlat (ses zaten schedule edilmiş olacak)
-        playAutoSequenceSeamless(startIndex + 1, scheduleTime);
-      }
-    }, uiUpdateDelay);
-    
-    scheduledTimeoutsRef.current.push(timeout);
-  };
-
-  const startAutoPlay = async (fromIndex: number) => {
-    if (backgroundVideoRef.current) {
-      backgroundVideoRef.current.muted = false;
-    }
-
-    isAutoPlayingRef.current = true;
-    setIsAutoPlaying(true);
-
-    await preloadAndDecodeMultiple(fromIndex, 6);
-
-    if (!isAutoPlayingRef.current) return;
-
-    playAutoSequenceSeamless(fromIndex, 0);
-  };
-
-  // Otomatik oynatmayı başlat/durdur
-  const toggleAutoPlay = async () => {
-    if (isAutoPlaying) {
-      // DURDUR - Tüm scheduled sesleri ve timeout'ları temizle
-      isAutoPlayingRef.current = false;
-      setIsAutoPlaying(false);
-      
-      // Video sesini kapat
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.muted = true;
-      }
-      
-      // Tüm scheduled audio source'ları durdur
-      allScheduledSourcesRef.current.forEach(source => {
-        try {
-          source.stop();
-        } catch (e) {
-          // Zaten durmuş olabilir
-        }
-      });
-      allScheduledSourcesRef.current = [];
-      
-      // Tüm timeout'ları temizle
-      scheduledTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
-      scheduledTimeoutsRef.current = [];
-      
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      if (currentSourceRef.current) {
-        try {
-          currentSourceRef.current.stop();
-        } catch (e) {}
-        currentSourceRef.current = null;
-      }
-      setIsPlaying(false);
-      setCurrentPlayingIndex(null);
-    } else {
-      // Başlat
-      await startAutoPlay(safeIndex);
-    }
-  };
-
-  // Component unmount olduğunda sesi durdur ve buffer'ı temizle
-  React.useEffect(() => {
-    return () => {
-      // Video sesini kapat
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.muted = true;
-      }
-      
-      // Tüm scheduled sesleri durdur
-      allScheduledSourcesRef.current.forEach(source => {
-        try {
-          source.stop();
-        } catch (e) {}
-      });
-      allScheduledSourcesRef.current = [];
-      
-      // Tüm timeout'ları temizle
-      scheduledTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
-      scheduledTimeoutsRef.current = [];
-      
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if (currentSourceRef.current) {
-        try {
-          currentSourceRef.current.stop();
-        } catch (e) {}
-        currentSourceRef.current = null;
-      }
-      audioBufferRef.current.clear();
-      decodedBuffersRef.current.clear();
-      setIsAutoPlaying(false);
-    };
-  }, []);
 
   // Swipe handlers - sadece swipe modunda çalışacak
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -658,27 +605,86 @@ const SurahView: React.FC<SurahViewProps> = ({
     }
   };
 
+  // Paylaşım görselini üret:
+  // 1) Kart, ŞEFFAF zeminle çekilir (kendi yarı saydam arka planı korunur).
+  // 2) Aktif arka plan videosu varsa o ANKİ karesi görselin arkasına
+  //    uygulamadaki görünümle aynı şekilde (koyu zemin + %50 video) çizilir.
+  // 3) html2canvas'ın hap rozetteki yazıyı kaydırma bug'ı, klonda rozete
+  //    sabit yükseklik + line-height verilerek düzeltilir.
+  const generateShareCanvas = async (targetEl: HTMLElement): Promise<HTMLCanvasElement> => {
+    const html2canvas = (await import('html2canvas')).default;
+    const isDarkMode = document.documentElement.classList.contains('dark');
+
+    const card = await html2canvas(targetEl, {
+      backgroundColor: null, // şeffaf: arka planı biz çizeceğiz
+      scale: 3,
+      logging: false,
+      useCORS: true,
+      allowTaint: true,
+      removeContainer: true,
+      onclone: (doc) => {
+        // html2canvas hap kutucuğundaki yazıyı ortalamayı beceremiyor;
+        // görselde kutucuğu tamamen kaldır, sadece "N. Ayet" yazısı kalsın.
+        doc.querySelectorAll('[data-share-badge]').forEach((el) => {
+          const s = (el as HTMLElement).style;
+          s.background = 'transparent';
+          s.border = 'none';
+          s.borderRadius = '0';
+          s.padding = '0';
+        });
+      },
+    });
+
+    const out = document.createElement('canvas');
+    out.width = card.width;
+    out.height = card.height;
+    const g = out.getContext('2d')!;
+
+    // PNG havası: kartın yuvarlak köşeleri DIŞI saydam kalsın.
+    // Tuval, kartın köşe yarıçapıyla kırpılır; arka plan da kart da bu
+    // yuvarlak alanın içine çizilir, dışarısı alfa=0 olarak kalır.
+    const radiusPx = parseFloat(getComputedStyle(targetEl).borderRadius) || 16;
+    const r = radiusPx * 3; // html2canvas scale=3 ile aynı ölçek
+    g.beginPath();
+    if (typeof g.roundRect === 'function') {
+      g.roundRect(0, 0, out.width, out.height, r);
+    } else {
+      const w = out.width, h = out.height;
+      g.moveTo(r, 0);
+      g.arcTo(w, 0, w, h, r);
+      g.arcTo(w, h, 0, h, r);
+      g.arcTo(0, h, 0, 0, r);
+      g.arcTo(0, 0, w, 0, r);
+      g.closePath();
+    }
+    g.clip();
+
+    const video = document.querySelector('video');
+    if (video && video.videoWidth > 0 && video.readyState >= 2) {
+      // uygulamadaki görünüm: koyu zemin üzerine %50 opaklıkta video
+      g.fillStyle = '#1A1D23';
+      g.fillRect(0, 0, out.width, out.height);
+      const vs = Math.max(out.width / video.videoWidth, out.height / video.videoHeight);
+      const dw = video.videoWidth * vs;
+      const dh = video.videoHeight * vs;
+      g.globalAlpha = 0.5;
+      g.drawImage(video, (out.width - dw) / 2, (out.height - dh) / 2, dw, dh);
+      g.globalAlpha = 1;
+    } else {
+      g.fillStyle = isDarkMode ? '#1A1D23' : '#FDFBF7';
+      g.fillRect(0, 0, out.width, out.height);
+    }
+    g.drawImage(card, 0, 0);
+    return out;
+  };
+
   const handleShare = async () => {
     if (!cardRef.current) return;
-    
+
     setSharing(true);
     try {
-      // Dinamik import
-      const html2canvas = (await import('html2canvas')).default;
-      
-      // Karanlık mod kontrolü
-      const isDarkMode = document.documentElement.classList.contains('dark');
-      
-      // Kartın screenshot'ını al
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
-        scale: 3, // Daha yüksek kalite için
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-        removeContainer: true
-      });
-      
+      const canvas = await generateShareCanvas(cardRef.current);
+
       // Canvas'ı blob'a çevir
       canvas.toBlob(async (blob) => {
         if (!blob) return;
@@ -722,25 +728,11 @@ const SurahView: React.FC<SurahViewProps> = ({
   const handleShareScroll = async (index: number) => {
     const targetRef = cardRefs.current[index];
     if (!targetRef) return;
-    
+
     setSharing(true);
     try {
-      // Dinamik import
-      const html2canvas = (await import('html2canvas')).default;
-      
-      // Karanlık mod kontrolü
-      const isDarkMode = document.documentElement.classList.contains('dark');
-      
-      // Kartın screenshot'ını al
-      const canvas = await html2canvas(targetRef, {
-        backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
-        scale: 3,
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-        removeContainer: true
-      });
-      
+      const canvas = await generateShareCanvas(targetRef);
+
       // Canvas'ı blob'a çevir
       canvas.toBlob(async (blob) => {
         if (!blob) return;
@@ -842,7 +834,7 @@ const SurahView: React.FC<SurahViewProps> = ({
                 )}
                 {/* Ayet Numarası - Minimal Badge */}
                 <div className="w-full mb-6 text-center">
-                  <span className="inline-block text-xs md:text-sm font-semibold px-3 py-1.5 rounded-full bg-light-bg/50 dark:bg-dark-bg/50 text-light-secondary dark:text-dark-secondary border border-light-border/50 dark:border-dark-border/50">
+                  <span data-share-badge className="inline-block text-xs md:text-sm font-semibold px-3 py-1.5 rounded-full bg-light-bg/50 dark:bg-dark-bg/50 text-light-secondary dark:text-dark-secondary border border-light-border/50 dark:border-dark-border/50">
                     {ayah.numberInSurah}. Ayet
                   </span>
                 </div>
@@ -986,7 +978,7 @@ const SurahView: React.FC<SurahViewProps> = ({
               </div>
               {/* Ayet Numarası - Minimal Badge */}
               <div className="w-full mb-6 text-center">
-                <span className="inline-block text-xs md:text-sm font-semibold px-3 py-1.5 rounded-full bg-light-bg/50 dark:bg-dark-bg/50 text-light-secondary dark:text-dark-secondary border border-light-border/50 dark:border-dark-border/50">
+                <span data-share-badge className="inline-block text-xs md:text-sm font-semibold px-3 py-1.5 rounded-full bg-light-bg/50 dark:bg-dark-bg/50 text-light-secondary dark:text-dark-secondary border border-light-border/50 dark:border-dark-border/50">
                   {currentAyah.numberInSurah}. Ayet
                 </span>
               </div>

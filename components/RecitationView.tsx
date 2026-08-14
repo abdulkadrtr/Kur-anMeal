@@ -1,6 +1,6 @@
 import React from 'react';
 import { Surah, RecitationItem } from '../types';
-import { formatTurkishText } from '../utils';
+import { formatTurkishText, makeArtworkPng } from '../utils';
 import { Play, Pause, Repeat, Repeat1, SkipBack, SkipForward, Youtube } from 'lucide-react';
 
 interface RecitationViewProps {
@@ -59,35 +59,9 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
   React.useEffect(() => { itemsRef.current = items; }, [items]);
   React.useEffect(() => { currentIdRef.current = currentId; }, [currentId]);
 
-  const artworkRef = React.useRef<string>('');
-  const getArtwork = () => {
-    if (artworkRef.current === '') {
-      try {
-        const c = document.createElement('canvas');
-        c.width = c.height = 512;
-        const g = c.getContext('2d')!;
-        g.fillStyle = '#1A1D23';
-        g.fillRect(0, 0, 512, 512);
-        g.fillStyle = '#D4AF37';
-        g.beginPath();
-        g.arc(256, 256, 190, 0, Math.PI * 2);
-        g.fill();
-        g.fillStyle = '#1A1D23';
-        g.font = 'bold 220px Arial';
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        g.fillText('ا', 256, 276);
-        artworkRef.current = c.toDataURL('image/png');
-      } catch {
-        artworkRef.current = ' '; // üretilemedi: bir daha deneme, ikonsuz devam
-      }
-    }
-    return artworkRef.current.trim();
-  };
-
   const updateMediaMetadata = React.useCallback((it: RecitationItem) => {
     if (!('mediaSession' in navigator)) return;
-    const art = getArtwork();
+    const art = makeArtworkPng();
     navigator.mediaSession.metadata = new MediaMetadata({
       title: it.title,
       artist: it.reciter,
@@ -96,17 +70,67 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
     });
   }, []);
 
+  // --- Sıradaki parçanın ÖN-İNDİRMESİ (kilitli ekran bug'ının kesin çözümü) ---
+  // Geçiş anında dosya ağdan çekilirse, uykudaki telefonda yükleme tarayıcının
+  // "arka planda yeni çalma başlatma" tolerans penceresini aşıyor ve play()
+  // sessizce bloke oluyor (1-2 geçiş sonra ses kesilmesinin sebebi). Sıradaki
+  // parça çalma sırasında blob olarak indirilir; geçişte ağ trafiği SIFIR olur.
+  const nextBlobRef = React.useRef<{ id: string; url: string } | null>(null);
+  const currentBlobUrlRef = React.useRef<string>('');
+  const wantPlayingRef = React.useRef(false);
+
+  const prefetchNext = React.useCallback((curId: string) => {
+    const list = itemsRef.current;
+    if (list.length < 2) return;
+    const idx = list.findIndex(i => i.id === curId);
+    const next = list[(idx + 1) % list.length];
+    if (!next || nextBlobRef.current?.id === next.id) return;
+    fetch(next.file)
+      .then(r => (r.ok ? r.blob() : Promise.reject()))
+      .then(b => {
+        // tüketilmemiş eski ön-indirmeyi bırak (çalan blob'a dokunma)
+        if (nextBlobRef.current && nextBlobRef.current.url !== currentBlobUrlRef.current) {
+          URL.revokeObjectURL(nextBlobRef.current.url);
+        }
+        nextBlobRef.current = { id: next.id, url: URL.createObjectURL(b) };
+      })
+      .catch(() => {}); // ön-indirme başarısızsa geçişte normal URL kullanılır
+  }, []);
+
   const startTrack = React.useCallback((it: RecitationItem) => {
     const audio = audioRef.current;
     if (!audio || !it) return;
     if (audio.dataset.itemId !== it.id) {
       audio.dataset.itemId = it.id;
-      audio.src = it.file;
+      const pre = nextBlobRef.current;
+      if (pre && pre.id === it.id) {
+        // önceki çalan blob artık kullanılmıyor: bırak
+        if (currentBlobUrlRef.current) URL.revokeObjectURL(currentBlobUrlRef.current);
+        audio.src = pre.url;
+        currentBlobUrlRef.current = pre.url;
+        nextBlobRef.current = null;
+      } else {
+        audio.src = it.file;
+      }
     }
     updateMediaMetadata(it); // geçişle aynı çağrı yığınında
+    wantPlayingRef.current = true;
     audio.play().catch(() => {});
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-  }, [updateMediaMetadata]);
+    prefetchNext(it.id); // çalma sürerken sıradakini hazırla
+  }, [updateMediaMetadata, prefetchNext]);
+
+  // Sigorta: play() yine de bloke olduysa, ekran açılır açılmaz kaldığı yerden başlat
+  React.useEffect(() => {
+    const onVisible = () => {
+      const audio = audioRef.current;
+      if (document.visibilityState === 'visible' && audio && wantPlayingRef.current && audio.paused) {
+        audio.play().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   const syncPositionState = React.useCallback(() => {
     const audio = audioRef.current;
@@ -161,7 +185,10 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
 
   React.useEffect(() => {
     return () => {
+      wantPlayingRef.current = false;
       audioRef.current?.pause();
+      if (currentBlobUrlRef.current) URL.revokeObjectURL(currentBlobUrlRef.current);
+      if (nextBlobRef.current) URL.revokeObjectURL(nextBlobRef.current.url);
       if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
     };
   }, []);
@@ -187,8 +214,13 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (isPlaying) audio.pause();
-    else audio.play().catch(() => {});
+    if (isPlaying) {
+      wantPlayingRef.current = false; // kullanıcı bilinçli durdurdu
+      audio.pause();
+    } else {
+      wantPlayingRef.current = true;
+      audio.play().catch(() => {});
+    }
   };
 
   // kapalı -> tek parça -> liste -> kapalı
@@ -345,6 +377,7 @@ const RecitationView: React.FC<RecitationViewProps> = ({ recitationId, surahs })
           setIsPlaying(false);
           // liste tekrarı: sıradaki kayda AYNI olay içinde senkron geç
           if (repeatModeRef.current === 'all') goToTrack(1);
+          else wantPlayingRef.current = false; // doğal bitiş: sigorta yeniden başlatmasın
         }}
         onError={() => {
           setIsPlaying(false);

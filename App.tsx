@@ -60,6 +60,51 @@ const App: React.FC = () => {
   
   // Video ref for background video
   const backgroundVideoRef = React.useRef<HTMLVideoElement>(null);
+
+  // Ambiyans sesi: videodan AYRI bir <audio> elemanı. Video hep sessiz kalır
+  // (sadece görüntü); ses bu elemandan gelir. Sebep: kilitli ekranda video
+  // sesi güvenilir değilken audio elemanı çalmaya devam eder — böylece
+  // "Sırayla Oku" arka planda okurken ateş/yağmur sesi de sürer.
+  const ambientRef = React.useRef<HTMLAudioElement | null>(null);
+  const ambientWantedRef = React.useRef<boolean>(false);
+  const backgroundThemeRef = React.useRef<BackgroundTheme>('default');
+  const videoVolumeRef = React.useRef<number>(50);
+
+  // Ambiyans için video yerine ÖZEL DÖNGÜ ses dosyaları kullanılır
+  // (public/ambient/*.m4a): baş/son sessizlikleri kırpılmış, dosyanın kuyruğu
+  // başına çapraz-geçişlenmiş -> yerel loop ile bitiş-başlangıç arası duyulur
+  // boşluk olmaz. (Videonun 10sn'lik ham sesi + seek hilesi bariz kesinti yapıyordu.)
+  const themeAmbientSrc = (theme: BackgroundTheme): string | null =>
+    theme === 'fire' ? './ambient/fire.m4a' :
+    theme === 'rain' ? './ambient/rain.m4a' :
+    theme === 'wind' ? './ambient/wind.m4a' :
+    theme === 'waterfall' ? './ambient/waterfall.m4a' : null;
+
+  const getAmbient = (): HTMLAudioElement => {
+    if (!ambientRef.current) {
+      const a = new Audio();
+      a.loop = true; // dosya kusursuz döngü için hazırlandı, hile gerekmez
+      a.preload = 'auto';
+      ambientRef.current = a;
+    }
+    return ambientRef.current;
+  };
+
+  const startAmbient = React.useCallback(() => {
+    const src = themeAmbientSrc(backgroundThemeRef.current);
+    ambientWantedRef.current = true;
+    if (!src) return; // video teması yok: sessiz devam
+    const a = getAmbient();
+    const abs = new URL(src, window.location.href).href;
+    if (a.src !== abs) a.src = src;
+    a.volume = videoVolumeRef.current / 100;
+    a.play().catch(() => {});
+  }, []);
+
+  const stopAmbient = React.useCallback(() => {
+    ambientWantedRef.current = false;
+    ambientRef.current?.pause();
+  }, []);
   
   // Hatim Mode State
   const [isHatimMode, setIsHatimMode] = useState<boolean>(() => {
@@ -285,17 +330,28 @@ const App: React.FC = () => {
     localStorage.setItem('turkishFontSize', turkishFontSize);
   }, [turkishFontSize]);
 
-  // Persist Background Theme
+  // Persist Background Theme (+ ambiyans kaynağını temaya göre değiştir)
   useEffect(() => {
     localStorage.setItem('backgroundTheme', backgroundTheme);
+    backgroundThemeRef.current = backgroundTheme;
+    const a = ambientRef.current;
+    if (!a) return;
+    const src = themeAmbientSrc(backgroundTheme);
+    if (!src) {
+      a.pause();
+    } else if (ambientWantedRef.current) {
+      const abs = new URL(src, window.location.href).href;
+      if (a.src !== abs) a.src = src;
+      a.play().catch(() => {});
+    }
   }, [backgroundTheme]);
 
-  // Persist Video Volume
+  // Persist Video Volume (ambiyans sesine uygulanır; video zaten hep sessiz)
   useEffect(() => {
     localStorage.setItem('videoVolume', videoVolume.toString());
-    // Video ref varsa volume'u güncelle
-    if (backgroundVideoRef.current) {
-      backgroundVideoRef.current.volume = videoVolume / 100;
+    videoVolumeRef.current = videoVolume;
+    if (ambientRef.current) {
+      ambientRef.current.volume = videoVolume / 100;
     }
   }, [videoVolume]);
 
@@ -467,6 +523,24 @@ const App: React.FC = () => {
     setCurrentSurahId(surahs[idx + 1].id);
     setCurrentAyahIndex(0);
   };
+
+  // Sıradaki surenin ilk ayet parça numaraları: sure sınırı geçişinde sesin
+  // React'i beklemeden SENKRON başlatılabilmesi için SurahView'a verilir.
+  const nextSurahInfo = React.useMemo(() => {
+    const idx = surahs.findIndex(s => s.id === currentSurahId);
+    if (idx === -1 || idx >= surahs.length - 1) return undefined;
+    const next = surahs[idx + 1];
+    const raw = String(next.ayahs[0]?.numberInSurah ?? '1');
+    let firstAyahParts: number[];
+    if (raw.includes('-')) {
+      const [a, b] = raw.split('-').map(n => parseInt(n.trim()));
+      firstAyahParts = [];
+      for (let n = a; n <= b; n++) firstAyahParts.push(n);
+    } else {
+      firstAyahParts = [parseInt(raw)];
+    }
+    return { id: next.id, firstAyahParts };
+  }, [surahs, currentSurahId]);
 
   // --- Random Ayah Logic (Equal Probability) ---
   const handleRandomAyah = () => {
@@ -670,7 +744,9 @@ const App: React.FC = () => {
               displayMode={displayMode}
               arabicFontSize={arabicFontSize}
               turkishFontSize={turkishFontSize}
-              backgroundVideoRef={backgroundVideoRef}
+              onAmbientStart={startAmbient}
+              onAmbientStop={stopAmbient}
+              nextSurah={nextSurahInfo}
               onAutoPlayNextSurah={handleAutoPlayNextSurah}
               autoPlayPending={pendingAutoPlay}
               onAutoPlayPendingConsumed={() => setPendingAutoPlay(false)}
