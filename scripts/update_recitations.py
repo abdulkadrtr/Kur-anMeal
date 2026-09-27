@@ -20,6 +20,7 @@ Ne yapar:
     sadece dalga görselleştirici gösterir.
 """
 import json
+import struct
 import re
 import subprocess
 import sys
@@ -75,6 +76,45 @@ def norm(text: str):
     return [w for w in re.split(r"[^ء-ي]+", text) if w]
 
 # ------------------------------------------------------------------- indirme
+def _top_boxes(path: Path, limit: int = 12):
+    """MP4 dosyasının üst seviye kutu (box) adları: ftyp, moov, moof, mdat…"""
+    names = []
+    size = path.stat().st_size
+    with path.open("rb") as f:
+        pos = 0
+        while pos < size and len(names) < limit:
+            f.seek(pos)
+            h = f.read(16)
+            if len(h) < 8:
+                break
+            sz, typ = struct.unpack(">I4s", h[:8])
+            if sz == 1:
+                sz = struct.unpack(">Q", h[8:16])[0]
+            if sz == 0:
+                sz = size - pos
+            if sz < 8:
+                break
+            names.append(typ.decode("latin1"))
+            pos += sz
+    return names
+
+def ensure_plain_mp4(path: Path):
+    """Parçalı (DASH) m4a'yı normal MP4'e çevir (yeniden kodlamadan).
+    Tarayıcıda düz <audio src> ile parçalı MP4 çalmak mobilde süre/bitiş
+    olaylarında sorun çıkarabiliyor; ffmpeg yoksa yt-dlp dosyayı parçalı bırakır."""
+    if not path.exists() or path.suffix != ".m4a" or "moof" not in _top_boxes(path):
+        return
+    ffmpeg = shutil.which("ffmpeg") or "/home/abd/.local/bin/ffmpeg"
+    tmp = path.with_suffix(".tmp.m4a")
+    try:
+        subprocess.run([ffmpeg, "-y", "-v", "error", "-i", str(path), "-c", "copy",
+                        "-movflags", "+faststart", str(tmp)], check=True)
+        tmp.replace(path)
+        print("  parçalı MP4 normal formata çevrildi")
+    except Exception as e:
+        tmp.unlink(missing_ok=True)
+        print(f"  ! parçalı MP4 çevrilemedi: {e}")
+
 def download(vid: str, url: str) -> dict:
     """Ses + altyazı + metadata indir (varsa atla). Meta döndürür."""
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
@@ -98,6 +138,7 @@ def download(vid: str, url: str) -> dict:
         run_ytdlp(["-f", "140/bestaudio[ext=m4a]/bestaudio/b[vcodec^=h264]/b",
                    "-x", "--audio-format", "m4a", "--audio-quality", "128K",
                    "-o", str(AUDIO_DIR / f"{vid}.%(ext)s"), url], check=True)
+    ensure_plain_mp4(audio)
 
     if not any(CACHE.glob(f"{vid}.ar*")):
         print(f"  altyazı indiriliyor…")

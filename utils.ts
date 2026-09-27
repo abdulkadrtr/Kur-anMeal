@@ -1,5 +1,20 @@
 export const ARABIC_RUN_SOURCE = '[\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]+';
 
+let keepAliveEl: HTMLAudioElement | null = null;
+export const keepAlive = {
+  start() {
+    if (!keepAliveEl) {
+      keepAliveEl = new Audio('./silence.m4a');
+      keepAliveEl.loop = true;
+      keepAliveEl.preload = 'auto';
+    }
+    if (keepAliveEl.paused) keepAliveEl.play().catch(() => {});
+  },
+  stop() {
+    keepAliveEl?.pause();
+  },
+};
+
 // Kilit ekranı / bildirim kartı ikonu. Android bildirimi SVG'yi bitmap'e
 // çeviremediği için canvas'ta bir kez PNG üretilir ve önbelleğe alınır.
 let artworkCache = '';

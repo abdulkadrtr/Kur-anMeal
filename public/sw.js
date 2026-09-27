@@ -58,7 +58,10 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.endsWith('.mp4') || url.pathname.endsWith('.m4a') || url.pathname.endsWith('.mp3')) return;
   if (event.request.headers.get('range')) return;
 
+  const isManifest = url.pathname.endsWith('/recitations.json');
+
   const isAppShell =
+    isManifest ||
     event.request.mode === 'navigate' ||
     event.request.destination === 'script' ||
     event.request.destination === 'style';

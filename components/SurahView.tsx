@@ -1,7 +1,7 @@
 import React from 'react';
 import { Surah } from '../types';
 import { BISMILLAH } from '../constants';
-import { formatTurkishText, makeArtworkPng } from '../utils';
+import { formatTurkishText, makeArtworkPng, keepAlive } from '../utils';
 import { Copy, ChevronLeft, ChevronRight, Heart, Check, Bookmark, Share2, Play, Pause, PlayCircle, StopCircle } from 'lucide-react';
 
 type NavigationMode = 'arrows' | 'swipe' | 'scroll';
@@ -133,6 +133,7 @@ const SurahView: React.FC<SurahViewProps> = ({
     const onVisible = () => {
       const el = elsRef.current[activeIdxRef.current];
       if (document.visibilityState === 'visible' && el && wantPlayingRef.current && el.paused) {
+        keepAlive.start();
         el.play().catch(() => {});
       }
     };
@@ -144,6 +145,7 @@ const SurahView: React.FC<SurahViewProps> = ({
       blobMapRef.current.forEach(u => { if (u) URL.revokeObjectURL(u); });
       blobMapRef.current.clear();
       onAmbientStop();
+      keepAlive.stop();
       if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
     };
   }, []);
@@ -311,7 +313,15 @@ const SurahView: React.FC<SurahViewProps> = ({
     blobMapRef.current.set(url, ''); // yükleniyor işareti
     fetch(url)
       .then(r => (r.ok ? r.blob() : Promise.reject()))
-      .then(b => blobMapRef.current.set(url, URL.createObjectURL(b)))
+      .then(b => {
+        const blobUrl = URL.createObjectURL(b);
+        blobMapRef.current.set(url, blobUrl);
+        const sb = elsRef.current[1 - activeIdxRef.current];
+        if (sb && sb.dataset.url === url && sb.paused && !sb.src.startsWith('blob:')) {
+          sb.src = blobUrl;
+          sb.load();
+        }
+      })
       .catch(() => blobMapRef.current.delete(url));
   };
 
@@ -351,11 +361,13 @@ const SurahView: React.FC<SurahViewProps> = ({
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.setActionHandler('play', () => {
       wantPlayingRef.current = true;
+      keepAlive.start();
       activeEl().play().catch(() => {});
       onAmbientStart();
     });
     navigator.mediaSession.setActionHandler('pause', () => {
       wantPlayingRef.current = false;
+      keepAlive.stop();
       activeEl().pause();
       onAmbientStop();
     });
@@ -389,6 +401,7 @@ const SurahView: React.FC<SurahViewProps> = ({
     try { if (el.currentTime > 0.05) el.currentTime = 0; } catch { /* metadata henüz yoksa sorun değil */ }
     wantPlayingRef.current = true;
     el.play().catch(() => {});
+    keepAlive.start(); // kısa (≤5 sn) ayetlerde bildirim kartı/arka plan izni düşmesin
 
     const s = surahRef.current;
     const a = s.ayahs[entry.ayahIndex];
@@ -411,6 +424,7 @@ const SurahView: React.FC<SurahViewProps> = ({
   const stopEngine = () => {
     modeRef.current = 'idle';
     wantPlayingRef.current = false;
+    keepAlive.stop();
     elsRef.current.forEach(e => { if (e) { e.pause(); e.dataset.url = ''; } });
     blobMapRef.current.forEach(u => { if (u) URL.revokeObjectURL(u); });
     blobMapRef.current.clear();
